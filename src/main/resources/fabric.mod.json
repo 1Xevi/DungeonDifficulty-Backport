@@ -1,11 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "dungeon_difficulty-backport",
+  "id": "dungeon_difficulty",
   "version": "${version}",
-  "name": "Dungeon Difficulty (Unofficial fork)",
-  "description": "This is an unofficial backport of latest mod version of 'Dungeon Difficulty' by Daedelus (daedelus_dev) for Minecraft 1.20.1. All credit for the original concept and code goes to them. Increase the difficulty and get matching rewards.",
-  "authors": ["1xevi"],
-  "contact": {},
+  "name": "Dungeon Difficulty",
+  "description": "Increase the difficulty and get matching rewards.",
+  "authors": ["Daedelus"],
+  "contact": {
+    "issues": "https://github.com/ZsoltMolnarrr/DungeonDifficulty/issues",
+    "homepage": "https://github.com/ZsoltMolnarrr/DungeonDifficulty"
+  },
   "license": "GPL-3.0",
   "icon": "assets/dungeon_difficulty/icon.png",
   "environment": "*",
@@ -20,14 +23,15 @@
     "dungeon_difficulty.mixins.json"
   ],
   "depends": {
-    "minecraft": ">=${minecraft_compat_version}",
-    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": ">=1.19.4",
+    "fabricloader": ">=0.14.0",
     "fabric-api": "*"
   },
   "custom": {
     "modmenu": {
-      "links": {},
-      "credits":["Daedelus (original author)"]
+      "links": {
+        "modmenu.discord": "https://discord.gg/KN9b3pjFTM"
+      }
     }
   }
 }
