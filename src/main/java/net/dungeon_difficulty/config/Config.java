@@ -1,27 +1,19 @@
 package net.dungeon_difficulty.config;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.util.List;
 import java.util.Random;
 
 public class Config {
     public Meta meta = new Meta();
-    public static class Meta { public Meta() { }
+    public class Meta { public Meta() { }
+        public String comment = "IMPORTANT! Make sure to set `allow_customization` to `true` to allow customization of the config";
+        public boolean allow_customization = false;
         public boolean sanitize_config = true;
         public Double rounding_unit = 0.5;
-        public boolean merge_item_modifiers = true;
-        public boolean loot_scaling = true;
+        //public boolean entity_equipment_scaling = false;
     }
 
-    public Announcement announcement = new Announcement();
-    public static class Announcement { public Announcement() { }
-        public boolean enabled = true;
-        public int check_interval_seconds = 5;
-        public int history_size = 2;
-    }
-
-    public PerPlayerDifficulty per_player_difficulty;
+    public PerPlayerDifficulty perPlayerDifficulty;
     public static class PerPlayerDifficulty { public PerPlayerDifficulty() { }
         public boolean enabled = true;
         public enum Counting { EVERYWHERE, DIMENSION }
@@ -29,28 +21,19 @@ public class Config {
         public EntityModifier[] entities = new EntityModifier[]{};
     }
 
-    public List<DifficultyType> difficulty_types = List.of();
+    public DifficultyType[] difficulty_types;
     public static class DifficultyType { public DifficultyType() { }
         public String name;
         public String parent;
-        @Nullable public String translation_code;
         public List<EntityModifier> entities = List.of();
         public Rewards rewards = new Rewards();
         public DifficultyType(String name) {
             this.name = name;
         }
     }
-    public static class Rewards { public Rewards() { }
-        public String name;
-        public List<ItemModifier> armor = List.of();
-        public List<ItemModifier> weapons = List.of();
-    }
-
     public static class DifficultyReference { public DifficultyReference() { }
         public String name;
         public int level = 0;
-        public Integer entity_level;
-        public Integer reward_level;
         public DifficultyReference(String name, int level) {
             this.name = name;
             this.level = level;
@@ -64,25 +47,18 @@ public class Config {
             public String dimension_regex = Regex.ANY;
         }
         public Filters world_matches = new Filters();
-        public DifficultyReference difficulty;
 
-        public List<Zone> zones = List.of();
-        public List<EntityMatcher> entities = List.of();
+        public DifficultyReference difficulty;
+        public Zone[] zones = new Zone[]{};
     }
 
     public static class Zone { public Zone() { }
         public static class Filters { public Filters() { }
-            @Nullable public String biome = null;
-            @Nullable public String structure = null;
+            public String biome = Regex.ANY;
+            public String structure = null;
         }
         public Filters zone_matches = new Filters();
 
-        public DifficultyReference difficulty;
-    }
-
-    public static class EntityMatcher { public EntityMatcher() { }
-        public String entity_type = null;
-        public String loot_table = null;
         public DifficultyReference difficulty;
     }
 
@@ -100,6 +76,11 @@ public class Config {
         public AttributeModifier[] attributes = new AttributeModifier[]{};
         public SpawnerModifier spawners = null;
         public float experience_multiplier = 0;
+    }
+
+    public static class Rewards { public Rewards() { }
+        public List<ItemModifier> armor = List.of();
+        public List<ItemModifier> weapons = List.of();
     }
 
     public static class ItemModifier { public ItemModifier() { }
