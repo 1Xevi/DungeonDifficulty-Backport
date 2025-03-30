@@ -2,15 +2,14 @@ package net.dungeon_difficulty.logic;
 
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.config.Config;
-import net.dungeon_difficulty.logic.PatternMatching.EntityScaleResult;
 import net.minecraft.server.world.ServerWorld;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class PerPlayerDifficulty {
-    public static EntityScaleResult getAttributeModifiers(PatternMatching.EntityData entityData, ServerWorld world) {
-        var empty = new EntityScaleResult(List.of(), 0, 0);
+    public static PatternMatching.EntityScaleResult getAttributeModifiers(PatternMatching.EntityData entityData, ServerWorld world) {
+        var empty = new PatternMatching.EntityScaleResult(List.of(), 0, 0);
         var perPlayer = DungeonDifficulty.config.value.per_player_difficulty;
         if (perPlayer == null || !perPlayer.enabled || perPlayer.entities == null || perPlayer.entities.length == 0 || perPlayer.counting == null) {
             return empty;
@@ -18,8 +17,12 @@ public class PerPlayerDifficulty {
 
         var playerCount = 0;
         switch (perPlayer.counting) {
-            case EVERYWHERE -> playerCount = world.getServer().getPlayerManager().getPlayerList().size();
-            case DIMENSION -> playerCount = world.getPlayers().size();
+            case EVERYWHERE -> {
+                playerCount = world.getServer().getPlayerManager().getPlayerList().size();
+            }
+            case DIMENSION -> {
+                playerCount = world.getPlayers().size();
+            }
         }
         if (playerCount < 2) {
             return empty;
@@ -32,6 +35,6 @@ public class PerPlayerDifficulty {
                 attributeModifiers.addAll(List.of(entityBaseModifier.attributes));
             }
         }
-        return new EntityScaleResult(attributeModifiers, applyCount, 0);
+        return new PatternMatching.EntityScaleResult(attributeModifiers, applyCount, 0);
     }
 }
