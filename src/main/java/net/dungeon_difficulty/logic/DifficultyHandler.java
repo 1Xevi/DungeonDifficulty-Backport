@@ -1,7 +1,9 @@
 package net.dungeon_difficulty.logic;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 
 public interface DifficultyHandler {
-    List<Difficulty.Announcement> getLastDifficultyAnnouncements();
+    @Nullable List<Difficulty.Announcement> getLastDifficultyAnnouncement();
 }

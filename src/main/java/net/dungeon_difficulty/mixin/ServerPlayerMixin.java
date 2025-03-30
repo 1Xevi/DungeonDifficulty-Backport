@@ -13,7 +13,7 @@ public class ServerPlayerMixin implements DifficultyHandler {
     private List<Difficulty.Announcement> lastDifficultyAnnouncement = new ArrayList<>();
 
     @Override
-    public List<Difficulty.Announcement> getLastDifficultyAnnouncements() {
+    public List<Difficulty.Announcement> getLastDifficultyAnnouncement() {
         return lastDifficultyAnnouncement;
     }
 }
