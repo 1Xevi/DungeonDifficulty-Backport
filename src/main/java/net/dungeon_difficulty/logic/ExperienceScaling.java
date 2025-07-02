@@ -1,5 +1,7 @@
 package net.dungeon_difficulty.logic;
 
+import net.dungeon_difficulty.logic.PatternMatching.EntityData;
+import net.dungeon_difficulty.logic.PatternMatching.LocationData;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.server.world.ServerWorld;
 
@@ -7,9 +9,9 @@ public class ExperienceScaling {
     public static int scale(ServerWorld world, LivingEntity entity, int experience) {
         var locationData = ((EntityDifficultyScalable)entity).getScalingLocationData();
         if (locationData == null) {
-            locationData = PatternMatching.LocationData.create(world, entity.getBlockPos());
+            locationData = LocationData.create(world, entity.getBlockPos());
         }
-        var entityData = PatternMatching.EntityData.create(entity);
+        var entityData = EntityData.create(entity);
         var scaling = PatternMatching.getAttributeModifiersForEntity(locationData, entityData, world);
         var xp = experience;
         if (scaling != null) {

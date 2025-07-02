@@ -3,6 +3,9 @@ package net.dungeon_difficulty.mixin;
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.logic.MathHelper;
 import net.dungeon_difficulty.logic.PatternMatching;
+import net.dungeon_difficulty.logic.PatternMatching.EntityData;
+import net.dungeon_difficulty.logic.PatternMatching.LocationData;
+import net.dungeon_difficulty.logic.PatternMatching.SpawnerScaleResult;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.world.ServerWorld;
@@ -44,8 +47,8 @@ public class MobSpawnerLogicMixin {
                 var entityType = Registries.ENTITY_TYPE.get(new Identifier(entityId));
                 var testEntity = entityType.create(world);
                 var isMonster = testEntity instanceof Monster;
-                var entityData = new PatternMatching.EntityData(entityId, isMonster);
-                var locationData = PatternMatching.LocationData.create(world, pos);
+                var entityData = new EntityData(entityId, isMonster);
+                var locationData = LocationData.create(world, pos);
                 var scaling = PatternMatching.getModifiersForSpawner(locationData, entityData, world);
 //                if (modifiers.size() > 0) {
 //                    System.out.println("Scaling spawner of: " + entityId + " at: " + pos);
@@ -58,7 +61,7 @@ public class MobSpawnerLogicMixin {
         }
     }
 
-    private void scaleSpawner(PatternMatching.SpawnerScaleResult scaling) {
+    private void scaleSpawner(SpawnerScaleResult scaling) {
 //        if (scaling.modifiers().size() > 0) {
 //            System.out.println("Spawner before scaling");
 //            System.out.println(" spawnRange:" + this.spawnRange

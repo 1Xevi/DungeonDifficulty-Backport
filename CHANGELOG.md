@@ -1,3 +1,67 @@
+# 3.3.5
+
+- Fix boss loot sometimes not being scaled
+
+# 3.3.4
+
+- Fix scaling of looted ranged weapons (RWA 2.1+)
+- Fix scaling of looted shields 
+
+# 3.3.3
+
+- Improve difficulty announcement logic
+- Add config for high priority difficulty assignments (to be checked before zones)
+
+# 3.3.2
+
+- Improve support for visual difficulty
+
+# 3.3.1
+
+- Add proper support for visual only difficulty, that doesn't really scale entities
+
+# 3.3.0
+
+Warning: Recommended to reset config file!
+
+- Add config for item modifiers be merged (thanks to Muon)
+- Universal matchers for: `biome`, `structure`, `entity_type`
+  - `#` prefix matches for tags
+  - `~` prefix matches for regex
+  - no prefix matches for exact match
+
+# 3.2.2
+
+- Improve announcement occurrence
+
+# 3.2.1
+
+- Fix boosted armor bonus attributes not stacking
+
+# 3.2.0
+
+- Decouple loot level from difficulty level
+- Add support for entity specific scaling
+- Add support for loot table specific scaling
+
+# 3.1.0
+
+- Add difficulty announcement titles
+- Add power level display onto scaled loot items
+- Relocate configs into `config/dungeon_difficulty`
+
+# 3.0.1
+
+- Update scaling defaults
+
+# 3.0.0
+
+- Update to Minecraft 1.21.1
+- Add shield scaling
+- Zone pattern matching now supports: biome regex, biome tags, structure regex, structure tags
+- Add new structure tags:
+  - `dungeon_difficulty:level_1` ... `dungeon_difficulty:level_6`
+
 # 2.2.1
 
 - Enchanted items now have `Uncommon` instead `Rare` rarity (can be disabled in client config)

@@ -1,9 +1,12 @@
 package net.dungeon_difficulty.logic;
 
+import net.dungeon_difficulty.logic.PatternMatching.EntityData;
+import net.dungeon_difficulty.logic.PatternMatching.LocationData;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 
@@ -17,8 +20,8 @@ public class EntityScaling {
             if (scalableEntity.isAlreadyScaled()) {
                 return;
             }
-            var locationData = PatternMatching.LocationData.create(world, livingEntity.getBlockPos());
-            var entityData = PatternMatching.EntityData.create(livingEntity);
+            var locationData = LocationData.create(world, livingEntity.getBlockPos());
+            var entityData = EntityData.create(livingEntity);
             scalableEntity.setScalingLocationData(locationData);
 
             var relativeHealth = livingEntity.getHealth() / livingEntity.getMaxHealth();
@@ -44,16 +47,21 @@ public class EntityScaling {
             if (modifier.attribute == null) {
                 continue;
             }
-            var attribute = Registries.ATTRIBUTE.get(new Identifier(modifier.attribute));
-            if (!entity.getAttributes().hasAttribute(attribute)) {
+
+            var attributeId = new Identifier(modifier.attribute);
+            var attributeKey = RegistryKey.of(net.minecraft.registry.RegistryKeys.ATTRIBUTE, attributeId);
+            var attribute = Registries.ATTRIBUTE.getEntry(attributeKey).orElse(null);
+
+            if (attribute == null || !entity.getAttributes().hasAttribute(attribute)) {
                 continue;
             }
 
             var modifierValue = modifier.randomizedValue(level);
 
+            // The rest of the method logic is perfectly fine and requires no changes.
             switch (modifier.operation) {
                 case ADDITION -> {
-                    var entityAttribute = entity.getAttributeInstance(attribute);
+                    var entityAttribute = entity.getAttributeInstance(attribute.value());
                     if (entityAttribute != null) {
                         entityAttribute.setBaseValue(entityAttribute.getBaseValue() + modifierValue);
                     }
@@ -61,7 +69,7 @@ public class EntityScaling {
                 case MULTIPLY_BASE -> {
                     var defaultValue = entity.getAttributeValue(attribute);
                     if (defaultValue > 0) {
-                        entity.getAttributeInstance(attribute).setBaseValue(defaultValue * (1F + modifierValue));
+                        entity.getAttributeInstance(attribute.value()).setBaseValue(defaultValue * (1F + modifierValue));
                     }
                 }
             }
