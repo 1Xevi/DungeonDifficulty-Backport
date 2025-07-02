@@ -1,41 +1,5 @@
-![Power Scale](.github/images/title.png)
+# Dungeon Difficulty (1.20.1 Unofficial Backport)
 
-<div align="center">
+This is an unofficial backport and fork of the **[original 'Dungeon Difficulty' mod](https://github.com/ZsoltMolnarrr/DungeonDifficulty)** by **[Daedalus (daedaulus_dev/ZsoltMolnarrr)](https://github.com/ZsoltMolnarrr)**. This version makes the mod compatible with **Minecraft 1.20.1**.
 
-<a href="">![Java 17](https://img.shields.io/badge/Java%2017-ee9258?logo=coffeescript&logoColor=ffffff&labelColor=606060&style=flat-square)</a>
-<a href="">![Environment: Server](https://img.shields.io/badge/environment-Server-1976d2?style=flat-square)</a>
-<a href="">[![Mod loader: Fabric]][fabric]</a>
-<a href="">[![Discord](https://img.shields.io/discord/973561601519149057.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2&style=flat-square)](https://discord.gg/KN9b3pjFTM)</a>
-</br>
-<h3>🔧 = this mod | 🔩 = entity & loot attributes
-</div>
-
-[fabric]: https://fabricmc.net
-[Mod loader: Fabric]: https://img.shields.io/badge/modloader-Fabric-1976d2?style=flat-square&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAFHGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDIgNzkuMTYwOTI0LCAyMDE3LzA3LzEzLTAxOjA2OjM5ICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOCAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDE4LTEyLTE2VDE2OjU0OjE3LTA4OjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAxOS0wNy0yOFQyMToxNzo0OC0wNzowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAxOS0wNy0yOFQyMToxNzo0OC0wNzowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDowZWRiMWMyYy1mZjhjLWU0NDEtOTMxZi00OTVkNGYxNGM3NjAiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6MGVkYjFjMmMtZmY4Yy1lNDQxLTkzMWYtNDk1ZDRmMTRjNzYwIiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6MGVkYjFjMmMtZmY4Yy1lNDQxLTkzMWYtNDk1ZDRmMTRjNzYwIj4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDowZWRiMWMyYy1mZjhjLWU0NDEtOTMxZi00OTVkNGYxNGM3NjAiIHN0RXZ0OndoZW49IjIwMTgtMTItMTZUMTY6NTQ6MTctMDg6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE4IChXaW5kb3dzKSIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz4/HiGMAAAAtUlEQVRYw+XXrQqAMBQF4D2P2eBL+QIG8RnEJFaNBjEum+0+zMQLtwwv+wV3ZzhhMDgfJ0wUSinxZUQWgKos1JP/AbD4OneIDyQPwCFniA+EJ4CaXm4TxAXCC0BNHgLhAdAnx9hC8PwGSRtAFVMQjF7cNTWED8B1cgwW20yfJgAvrssAsZ1cB3g/xckAxr6FmCDU5N6f488BrpCQ4rQBJkiMYh4ACmLzwOQF0CExinkCsvw7vgGikl+OotaKRwAAAABJRU5ErkJggg==
-
-# 📦 Features
-
-- Per player difficulty
-- Dimension and biome specific ruleset
-- Each ruleset can adjust entities and looted items
-- Entities attributes and spawner settings can be adjusted (for example: more health, armor, etc...)
-- Looted item attributes can be adjusted (for example: more damage on weapons)
-- Fully data-driven (using the configuration file)
-
-# 🔧 Configuration
-
-The configuration is meant to be used by modpack developers, hence no in-game (client-side) settings are available. It is a server-side only configuration, can be found at `config/dungeon_difficulty_v2.json`.
-
-Regex fields in the configuration are interpreted as fully featured regex. If you are unfamiliar with regex, first make sure to learn about it (start for example [here](https://www.youtube.com/watch?v=sXQxhojSdZM)). It is recommended to test out your regex patterns using tool: [regex101.com](https://regex101.com)
-
-Editing the config usually involves the steps below:
-1. Open the config file
-2. Set `allow_customization` to `true`, so your config doesn't get overridden with defaults at launch
-3. Define difficulty types (in `difficulty_types` array), which describe scaling of entities of looted items
-4. Assign difficulty to locations referencing a difficulty type by its name, and an arbitrary level. These can be dimension by regex, biomes by regex and structures by specific structure ID.
-
-Check out the default configuration to see specific examples.
-
-Config file is parsed into `Config` object. You can find it [here](./src/main/java/net/dungeon_difficulty/config/Config.java). Config file is **sanitized** upon reloading, meaning every non-parsable data is removed.
-
-Use the following command to refresh the config while in game: `/dungeon_difficulty_config_reload`
+The initial goal of this backport was to bring the updated config format and features from version 3.3.5 (originally for 1.21.1) to 1.20.1. All credit for the original concept, design, and code goes to the original author.
