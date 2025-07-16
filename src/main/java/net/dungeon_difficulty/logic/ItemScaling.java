@@ -39,6 +39,10 @@ public class ItemScaling {
     }
 
     public static void initialize() {
+        boolean useLootScaling = DungeonDifficulty.config.value.meta.loot_scaling;
+
+        if (!useLootScaling) { return; }
+
         LootTableEvents.MODIFY.register((resourceManager, lootManager, id, tableBuilder, source) -> {
             LootFunction function = new LootFunction() {
                 @Override

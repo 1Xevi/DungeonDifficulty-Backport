@@ -7,10 +7,11 @@ import java.util.Random;
 
 public class Config {
     public Meta meta = new Meta();
-    public class Meta { public Meta() { }
+    public static class Meta { public Meta() { }
         public boolean sanitize_config = true;
         public Double rounding_unit = 0.5;
         public boolean merge_item_modifiers = true;
+        public boolean loot_scaling = true;
     }
 
     public Announcement announcement = new Announcement();
