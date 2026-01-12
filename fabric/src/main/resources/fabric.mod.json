@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "dungeon_difficulty",
   "version": "${version}",
-  "name": "Dungeon Difficulty",
-  "description": "Increase the difficulty and get matching rewards.",
-  "authors": ["Daedelus"],
+  "name": "Dungeon Difficulty (Unofficial Backport)",
+  "description": "Unofficial 1.20.1 backport of Dungeon Difficulty by Daedelus. Increase the difficulty and get matching rewards.",
+  "authors": ["Daedelus, 1xevi"],
   "contact": {
     "issues": "https://github.com/ZsoltMolnarrr/DungeonDifficulty/issues",
     "homepage": "https://github.com/ZsoltMolnarrr/DungeonDifficulty"
