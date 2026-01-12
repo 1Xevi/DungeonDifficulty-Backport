@@ -11,4 +11,3 @@ rootProject.name = 'dungeon_difficulty'
 
 include 'common'
 include 'fabric'
-include 'neoforge'
