@@ -11,5 +11,9 @@ public class Compat {
         public static Identifier of(String namespace, String path) {
             return new Identifier(namespace, path);
         }
+
+        public static Identifier ofVanilla(String path) {
+            return new Identifier("minecraft", path);
+        }
     }
 }
