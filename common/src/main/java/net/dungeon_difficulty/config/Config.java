@@ -11,6 +11,7 @@ public class Config {
         public boolean sanitize_config = true;
         public Double rounding_unit = 0.5;
         public boolean merge_item_modifiers = true;
+        public boolean global_loot_scaling = true;
     }
 
     public Announcement announcement = new Announcement();
