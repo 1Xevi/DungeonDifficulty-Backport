@@ -182,37 +182,41 @@ public class ItemScaling {
             summary.put(modifier.attribute, element);
         }
 
+        var nbt = itemStack.getOrCreateNbt();
+        var nbtModifiers = nbt.getList("AttributeModifiers", 10);
         for (EquipmentSlot slot : slots) {
             for (var entry : summary.entrySet()) {
-                ModifierSummary totals = entry.getValue();
+                var totals = entry.getValue();
                 if (totals.isEmpty()) continue;
 
-                String attributeName = entry.getKey();
-                Identifier attributeId = new Identifier(attributeName);
-                EntityAttribute attribute = Registries.ATTRIBUTE.get(attributeId);
-                if (attribute == null) continue;
+                var attributeName = entry.getKey();
+
+                if (attributeName.equalsIgnoreCase("damage") || attributeName.equalsIgnoreCase("power")) {
+                    attributeName = "minecraft:generic.attack_damage";
+                } else if (attributeName.equalsIgnoreCase("speed")) {
+                    attributeName = "minecraft:generic.attack_speed";
+                } else if (attributeName.equalsIgnoreCase("health")) {
+                    attributeName = "minecraft:generic.max_health";
+                } else if (attributeName.equalsIgnoreCase("armor")) {
+                    attributeName = "minecraft:generic.armor";
+                }
+
+                var randomUuid = UUID.randomUUID();
 
                 if (totals.add() != 0) {
                     double finalValue = totals.add();
-
                     Double roundingUnit = getRoundingUnit();
                     if (roundingUnit != null && roundingUnit != 0) {
                         finalValue = Math.round(finalValue / roundingUnit) * roundingUnit;
                     }
 
                     if (finalValue != 0) {
-                        itemStack.addAttributeModifier(attribute, createEntityAttributeModifier(
-                                slot, attribute, "DungeonDifficulty_ScaledAdd", finalValue, EntityAttributeModifier.Operation.ADDITION
-                        ), slot);
+                        nbtModifiers.add(createRawModifierNbt(attributeName, "DD_Scaled_Add", finalValue, 0, slot, randomUuid));
                     }
                 }
 
                 if (totals.multiplyBase() != 0) {
-                    double finalValue = totals.multiplyBase();
-
-                    itemStack.addAttributeModifier(attribute, createEntityAttributeModifier(
-                            slot, attribute, "DungeonDifficulty_ScaledMult", finalValue, EntityAttributeModifier.Operation.MULTIPLY_BASE
-                    ), slot);
+                    nbtModifiers.add(createRawModifierNbt(attributeName, "DD_Scaled_Mult", totals.multiplyBase(), 1, slot, UUID.randomUUID()));
                 }
             }
         }
@@ -255,26 +259,43 @@ public class ItemScaling {
     }
 
     private static void copyAttributesToNBT(ItemStack itemStack) {
-        var nbt = itemStack.getNbt();
-        if (nbt == null || !nbt.contains("AttributeModifiers", 9)) {
-            // Logic for when it is MISSING modifiers (e.g. create them)
-            // If no metadata yet
-            List<SlotSpecificItemAttributes> slotSpecificItemAttributes = new ArrayList<>();
-            for(var slot: EquipmentSlot.values()) {
-                slotSpecificItemAttributes.add(new SlotSpecificItemAttributes(slot, itemStack.getAttributeModifiers(slot)));
-            }
-            for(var element: slotSpecificItemAttributes) {
-                for(var entry: element.attributes.entries()) {
-                    debug("copyItemAttributesToNBT slot:" +  element.slot + " - adding: " + entry.getKey() + " - modifier: " + entry.getValue());
+        var nbt = itemStack.getOrCreateNbt();
+        if (!nbt.contains("AttributeModifiers", 9)) {
+            var nbtModifiers = new NbtList();
+            for (EquipmentSlot slot : EquipmentSlot.values()) {
+                Multimap<EntityAttribute, EntityAttributeModifier> baseMap = itemStack.getAttributeModifiers(slot);
+
+                for (Map.Entry<EntityAttribute, EntityAttributeModifier> entry : baseMap.entries()) {
                     var attribute = entry.getKey();
-                    itemStack.addAttributeModifier(
-                            attribute,
-                            entry.getValue(),
-                            element.slot
-                    );
+                    var mod = entry.getValue();
+
+                    nbtModifiers.add(createRawModifierNbt(
+                            Registries.ATTRIBUTE.getId(attribute).toString(),
+                            mod.getName(),
+                            mod.getValue(),
+                            mod.getOperation().getId(),
+                            slot,
+                            mod.getId() // Keep the original vanilla UUID for base stats
+                    ));
                 }
             }
+
+            if (!nbtModifiers.isEmpty()) {
+                nbt.put("AttributeModifiers", nbtModifiers);
+                itemStack.setNbt(nbt); // Save to stack
+            }
         }
+    }
+
+    private static NbtCompound createRawModifierNbt(String attribute, String name, double value, int op, EquipmentSlot slot, UUID uuid) {
+        NbtCompound compound = new NbtCompound();
+        compound.putString("AttributeName", attribute);
+        compound.putString("Name", name);
+        compound.putDouble("Amount", value);
+        compound.putInt("Operation", op);
+        compound.putString("Slot", slot.getName());
+        compound.putUuid("UUID", uuid);
+        return compound;
     }
 
     private static EntityAttributeModifier createEntityAttributeModifier(EquipmentSlot slot, EntityAttribute attribute, String name, double value, EntityAttributeModifier.Operation operation) {
