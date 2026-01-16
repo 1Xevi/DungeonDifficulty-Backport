@@ -1,27 +1,23 @@
 package net.dungeon_difficulty.logic;
 
+import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.config.Config;
-import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.AttributeModifierSlot;
-import net.minecraft.component.type.AttributeModifiersComponent;
-import net.minecraft.component.type.NbtComponent;
+import net.dungeon_difficulty.util.Compat.CIdentifier;
+import net.fabricmc.fabric.api.loot.v2.LootTableEvents;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttribute;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.item.*;
-import net.minecraft.loot.context.LootContext;
-import net.minecraft.loot.context.LootContextParameters;
-import net.minecraft.loot.function.LootFunction;
-import net.minecraft.loot.function.LootFunctionType;
-import net.minecraft.loot.function.LootFunctionTypes;
+import net.minecraft.loot.condition.LootCondition;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.server.world.ServerWorld;
-import org.apache.commons.lang3.mutable.MutableDouble;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -38,8 +34,8 @@ public class ItemScaling {
     }
 
     public static void initialize() {
-        LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
-            var function = new LocalScalingLootFunction(List.of(), key.getValue());
+        LootTableEvents.MODIFY.register((resourceManager, lootManager, id, tableBuilder, source) -> {
+            var function = new LocalScalingLootFunction(new LootCondition[0], id);
             tableBuilder.apply(function);
         });
     }
@@ -67,31 +63,39 @@ public class ItemScaling {
             debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
 
             var hasHandModifiers = false;
-            var attributes = itemStack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-            if (attributes != null) {
-                // Find modifiers with the slot type of `HAND
-                var hand = attributes.modifiers().stream()
-                        .filter(modifier -> modifier.slot() == AttributeModifierSlot.HAND)
-                        .findFirst();
-                hasHandModifiers = hand.isPresent();
+            var nbt = itemStack.getNbt();
+            if (nbt != null && itemStack.getNbt().contains("AttributeModifiers", 9)) {
+                NbtList attributes = itemStack.getNbt().getList("AttributeModifiers", 10);
+                for (int i = 0; i < attributes.size(); i++) {
+                    if (attributes.getCompound(i).getString("Slot").equals(EquipmentSlot.MAINHAND.getName())) {
+                        hasHandModifiers = true;
+                        break;
+                    }
+                }
             }
 
-            applyModifiersForItemStack(List.of(hasHandModifiers ? AttributeModifierSlot.HAND : AttributeModifierSlot.MAINHAND),
-                    itemId, itemStack, result.modifiers(), result.level());
+            List<EquipmentSlot> targetSlots;
+            if (hasHandModifiers) {
+                targetSlots = List.of(EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND);
+            } else {
+                targetSlots = List.of(EquipmentSlot.MAINHAND);
+            }
+            applyModifiers(targetSlots, itemId, itemStack, result.modifiers(), result.level());
         }
+
         if (itemStack.getItem() instanceof ArmorItem armor) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
             debug("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
             var result = PatternMatching.getModifiersForItem(locationData, itemData, world, scaling);
             debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
-            applyModifiersForItemStack(List.of( AttributeModifierSlot.forEquipmentSlot(armor.getSlotType()) ), itemId, itemStack, result.modifiers(), result.level());
+            applyModifiers(List.of(armor.getSlotType()), itemId, itemStack, result.modifiers(), result.level());
         }
         if (itemStack.getItem() instanceof ShieldItem shield) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
             debug("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
             var result = PatternMatching.getModifiersForItem(locationData, itemData, world, scaling);
             debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
-            applyModifiersForItemStack(List.of(AttributeModifierSlot.HAND), itemId, itemStack, result.modifiers(), result.level());
+            applyModifiers(List.of(EquipmentSlot.OFFHAND, EquipmentSlot.MAINHAND), itemId, itemStack, result.modifiers(), result.level());
         }
     }
 
@@ -99,7 +103,7 @@ public class ItemScaling {
         var itemEntry = itemStack.getRegistryEntry();
         var itemId = Registries.ITEM.getId(itemStack.getItem()).toString();
         var rarity = itemStack.getRarity().toString();
-        var lootTableId = Identifier.ofVanilla("none");
+        var lootTableId = CIdentifier.ofVanilla("none");
         var scaling = DungeonDifficulty.config.value.loot_scaling;
 
         if (itemStack.getItem() instanceof ToolItem || itemStack.getItem() instanceof RangedWeaponItem) {
@@ -107,27 +111,35 @@ public class ItemScaling {
             var result = PatternMatching.getItemScaleResult(itemData, scaling, level);
 
             var hasHandModifiers = false;
-            var attributes = itemStack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-            if (attributes != null) {
-                // Find modifiers with the slot type of `HAND
-                var hand = attributes.modifiers().stream()
-                        .filter(modifier -> modifier.slot() == AttributeModifierSlot.HAND)
-                        .findFirst();
-                hasHandModifiers = hand.isPresent();
+            var nbt = itemStack.getNbt();
+            if (nbt != null && itemStack.getNbt().contains("AttributeModifiers", 9)) {
+                var attributes = itemStack.getNbt().getList("AttributeModifiers", 10);
+                for (int i = 0; i < attributes.size(); i++) {
+                    if (attributes.getCompound(i).getString("Slot").equals(EquipmentSlot.MAINHAND.getName())) {
+                        hasHandModifiers = true;
+                        break;
+                    }
+                }
             }
 
-            applyModifiersForItemStack(List.of(hasHandModifiers ? AttributeModifierSlot.HAND : AttributeModifierSlot.MAINHAND),
-                    itemId, itemStack, result.modifiers(), result.level());
+            List<EquipmentSlot> targetSlots;
+            if (hasHandModifiers) {
+                targetSlots = List.of(EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND);
+            } else {
+                targetSlots = List.of(EquipmentSlot.MAINHAND);
+            }
+
+            applyModifiers(targetSlots, itemId, itemStack, result.modifiers(), result.level());
         }
         if (itemStack.getItem() instanceof ArmorItem armor) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
             var result = PatternMatching.getItemScaleResult(itemData, scaling, level);
-            applyModifiersForItemStack(List.of( AttributeModifierSlot.forEquipmentSlot(armor.getSlotType()) ), itemId, itemStack, result.modifiers(), result.level());
+            applyModifiers(List.of(armor.getSlotType()), itemId, itemStack, result.modifiers(), result.level());
         }
         if (itemStack.getItem() instanceof ShieldItem shield) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
             var result = PatternMatching.getItemScaleResult(itemData, scaling, level);
-            applyModifiersForItemStack(List.of(AttributeModifierSlot.HAND), itemId, itemStack, result.modifiers(), result.level());
+            applyModifiers(List.of(EquipmentSlot.OFFHAND, EquipmentSlot.MAINHAND), itemId, itemStack, result.modifiers(), result.level());
         }
     }
 
@@ -141,195 +153,95 @@ public class ItemScaling {
         public boolean isEmpty() {
             return add == 0 && multiplyBase == 0;
         }
-        public float apply(float value) {
-            return (value + add) * (1F + multiplyBase);
-        }
     }
 
-    private record AddResult(double value, @Nullable Identifier id) { }
-    private static AddResult addValuesOf(AttributeModifiersComponent component, AttributeModifierSlot slot, RegistryEntry<EntityAttribute> givenAttribute) {
-        var mutableValue = new MutableDouble(0);
-        final @Nullable Identifier[] modifierId = {null};
-        component.applyModifiers(slot, (attribute,modifier) -> {
-                if (attribute.equals(givenAttribute) && modifier.operation() == EntityAttributeModifier.Operation.ADD_VALUE) {
-                    if (modifierId[0] == null) {
-                        modifierId[0] = modifier.id();
-                    }
-                    mutableValue.add(modifier.value());
-                }
-            }
-        );
-        return new AddResult(mutableValue.doubleValue(), modifierId[0]);
-    }
+    public record SlotSpecificItemAttributes(
+            EquipmentSlot slot,
+            Multimap<EntityAttribute, EntityAttributeModifier> attributes) { }
 
-    private record ScaledAttributeResult(double value) { }
-
-    private static void applyModifiersForItemStack(List<AttributeModifierSlot> slots, String itemId, ItemStack itemStack, List<Config.AttributeModifier> modifiers, int level) {
+    private static void applyModifiers(List<EquipmentSlot> slots, String itemId, ItemStack itemStack, List<Config.AttributeModifier> modifiers, int level) {
         if (modifiers.isEmpty() || level == 0) {
             return;
         }
-        var roundingUnit = getRoundingUnit();
-        boolean useAdditiveModifiers = !DungeonDifficulty.config.value.meta.merge_item_modifiers;
 
-        var attributesComponents = itemStack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-        if (attributesComponents == null || attributesComponents.modifiers().isEmpty()) {
-            attributesComponents = itemStack.getItem().getAttributeModifiers();
-            if (attributesComponents == null || attributesComponents.modifiers().isEmpty()) {
-                attributesComponents = itemStack.getItem().getComponents().get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-            }
-            if (attributesComponents == null) {
-                attributesComponents = itemStack.getOrDefault(DataComponentTypes.ATTRIBUTE_MODIFIERS, AttributeModifiersComponent.DEFAULT);
-            }
-        }
+        copyAttributesToNBT(itemStack);
 
-        var summary = new LinkedHashMap<String, ModifierSummary>();
+        Map<String, ModifierSummary> summary = new LinkedHashMap<>();
+
         for (var modifier : modifiers) {
-            var element = summary.get(modifier.attribute);
-            if (element == null) {
-                element = new ModifierSummary(0, 0);
+            float value = modifier.randomizedValue(level);
+            if (value == 0) continue;
+
+            var element = summary.getOrDefault(modifier.attribute, new ModifierSummary(0, 0));
+
+            if (modifier.operation == Config.Operation.ADDITION) {
+                element = element.add(value);
+            } else {
+                element = element.multiplyBase(value);
             }
-            switch (modifier.operation) {
-                case ADDITION -> {
-                    element = element.add(modifier.randomizedValue(level));
-                }
-                case MULTIPLY_BASE -> {
-                    element = element.multiplyBase(modifier.randomizedValue(level));
-                }
-            }
-            if (!element.isEmpty()) {
-                summary.put(modifier.attribute, element);
-            }
+            summary.put(modifier.attribute, element);
         }
 
-        // System.out.println("Scaling item: " + itemId + " with " + summary.size() + " modifiers");
+        for (EquipmentSlot slot : slots) {
+            for (var entry : summary.entrySet()) {
+                ModifierSummary totals = entry.getValue();
+                if (totals.isEmpty()) continue;
 
-        LinkedHashMap<AttributeModifierSlot, LinkedHashMap<RegistryEntry<EntityAttribute>,  ScaledAttributeResult>> results = new LinkedHashMap<>();
-        for(var slot: slots) {
-            results.put(slot, new LinkedHashMap<>());
-            for (var attributeBoost : summary.entrySet()) {
-                List<RegistryEntry<EntityAttribute>> affectedAttributes = List.of();
-                var attributePattern = attributeBoost.getKey();
-                var exactMatch = Registries.ATTRIBUTE.getEntry(Identifier.of(attributePattern)).orElse(null);
-                if (exactMatch != null) {
-                    affectedAttributes = List.of(exactMatch);
-                } else {
-                    var arrayList = new ArrayList<RegistryEntry<EntityAttribute>>();
-                    attributesComponents.applyModifiers(slot, (attribute, modifier) -> {
-                        if (PatternMatching.regexMatches(attribute.getKey().get().getValue().toString(), attributePattern)) {
-                            arrayList.add(attribute);
-                        }
-                    });
-                    affectedAttributes = arrayList;
-                }
-                for (var attribute: affectedAttributes) {
-                    var baseline = addValuesOf(attributesComponents, slot, attribute);
-                    var baseValue = baseline.value;
-                    
-                    if (useAdditiveModifiers) {
-                        // Additive behavior - calculate and apply only the difference
-                        var boostedValue = attributeBoost.getValue().apply((float) baseValue);
-                        var boostAmount = boostedValue - baseValue;
-                        if (roundingUnit != null) {
-                            boostAmount = MathHelper.round(boostAmount, roundingUnit);
-                        }
-                        if (boostAmount != 0) {
-                            results.get(slot).put(attribute, new ScaledAttributeResult(boostAmount));
-                        }
-                    } else {
-                        // Merge behavior - replace with scaled value
-                        var value = baseValue;
-                        value = attributeBoost.getValue().apply((float) value);
-                        if (roundingUnit != null) {
-                            value = MathHelper.round(value, roundingUnit);
-                        }
-                        results.get(slot).put(attribute, new ScaledAttributeResult(value));
+                String attributeName = entry.getKey();
+                Identifier attributeId = new Identifier(attributeName);
+                EntityAttribute attribute = Registries.ATTRIBUTE.get(attributeId);
+                if (attribute == null) continue;
+
+                if (totals.add() != 0) {
+                    double finalValue = totals.add();
+
+                    Double roundingUnit = getRoundingUnit();
+                    if (roundingUnit != null && roundingUnit != 0) {
+                        finalValue = Math.round(finalValue / roundingUnit) * roundingUnit;
+                    }
+
+                    if (finalValue != 0) {
+                        itemStack.addAttributeModifier(attribute, createEntityAttributeModifier(
+                                slot, attribute, "DungeonDifficulty_ScaledAdd", finalValue, EntityAttributeModifier.Operation.ADDITION
+                        ), slot);
                     }
                 }
-            }
-        }
 
-        var newAttributeComponent = AttributeModifiersComponent.builder();
-        
-        for (var slot : slots) {
-            Map<RegistryEntry<EntityAttribute>, ScaledAttributeResult> slotResults = results.computeIfAbsent(slot, k -> new LinkedHashMap<>());
-            
-            attributesComponents.applyModifiers(slot, (attribute, modifier) -> {
-                var result = slotResults.get(attribute);
-                boolean replacing = !useAdditiveModifiers && result != null && modifier.operation() == EntityAttributeModifier.Operation.ADD_VALUE;
-                
-                if (replacing) {
-                    newAttributeComponent.add(
-                            attribute,
-                            new EntityAttributeModifier(modifier.id(), result.value, EntityAttributeModifier.Operation.ADD_VALUE),
-                            slot);
-                    slotResults.remove(attribute); 
-                } else {
-                    // Still copy the original modifier into the new component
-                    newAttributeComponent.add(
-                            attribute,
-                            modifier,
-                            slot);
+                if (totals.multiplyBase() != 0) {
+                    double finalValue = totals.multiplyBase();
+
+                    itemStack.addAttributeModifier(attribute, createEntityAttributeModifier(
+                            slot, attribute, "DungeonDifficulty_ScaledMult", finalValue, EntityAttributeModifier.Operation.MULTIPLY_BASE
+                    ), slot);
                 }
-            });
-
-            for (var entry : slotResults.entrySet()) {
-                var attribute = entry.getKey();
-                var result = entry.getValue();
-                var id = Identifier.of(DungeonDifficulty.MODID, "power_boost_" + slot.asString());
-                newAttributeComponent.add(
-                        attribute,
-                        new EntityAttributeModifier(id, result.value, EntityAttributeModifier.Operation.ADD_VALUE),
-                        slot);
             }
         }
 
-        itemStack.set(DataComponentTypes.ATTRIBUTE_MODIFIERS, newAttributeComponent.build());
         markAsScaled(itemStack, level);
     }
 
-    private static Double getRoundingUnit() {
-        var config = DungeonDifficulty.config.value;
-        if (config.meta != null && config.meta.rounding_unit != null) {
-            return config.meta.rounding_unit;
-        }
-        return null;
-    }
-
     public static void markAsScaled(ItemStack itemStack, int level) {
-        itemStack.apply(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT, comp -> comp.apply(currentNbt -> {
-            currentNbt.putInt(REWARD_SCALE_FACTOR, level);
-        }));
+        itemStack.getOrCreateNbt().putInt(REWARD_SCALE_FACTOR, level);
     }
 
     public static boolean isScaled(ItemStack itemStack) {
-        var nbt = itemStack.get(DataComponentTypes.CUSTOM_DATA);
-        if (nbt == null) {
-            return false;
-        }
-        return nbt.contains(REWARD_SCALE_FACTOR);
+        return itemStack.getNbt() != null && itemStack.getNbt().contains(REWARD_SCALE_FACTOR);
     }
 
     public static int getScaleFactor(ItemStack itemStack) {
-        var nbt = itemStack.get(DataComponentTypes.CUSTOM_DATA);
-        if (nbt == null) {
-            return 0;
-        }
-        if (nbt.contains(REWARD_SCALE_FACTOR)) {
-            return nbt.getNbt().getInt(REWARD_SCALE_FACTOR);
+        var nbt = itemStack.getNbt();
+        if (isScaled(itemStack) && nbt != null) {
+            return nbt.getInt(REWARD_SCALE_FACTOR);
         }
         return 0;
     }
 
     public static void removeScaling(ItemStack itemStack) {
-        itemStack.apply(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT, comp -> comp.apply(currentNbt -> {
-            currentNbt.remove(REWARD_SCALE_FACTOR);
-        }));
-        // Removing all attribute modifiers, as we made a full copy during scaling
-        itemStack.remove(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-
-        var cleared = itemStack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
-        if (cleared == null || cleared.modifiers().isEmpty() && itemStack.getItem().getComponents() != null) {
-            itemStack.set(DataComponentTypes.ATTRIBUTE_MODIFIERS, itemStack.getItem().getComponents().get(DataComponentTypes.ATTRIBUTE_MODIFIERS));
+        var nbt = itemStack.getNbt();
+        if (nbt != null) {
+            nbt.remove(REWARD_SCALE_FACTOR);
+            // Also remove the "AttributeModifiers" list to reset it
+            nbt.remove("AttributeModifiers");
         }
     }
 
@@ -340,5 +252,67 @@ public class ItemScaling {
         if (newLevel > 0) {
             ItemScaling.scale(itemStack, newLevel);
         }
+    }
+
+    private static void copyAttributesToNBT(ItemStack itemStack) {
+        var nbt = itemStack.getNbt();
+        if (nbt == null || !nbt.contains("AttributeModifiers", 9)) {
+            // Logic for when it is MISSING modifiers (e.g. create them)
+            // If no metadata yet
+            List<SlotSpecificItemAttributes> slotSpecificItemAttributes = new ArrayList<>();
+            for(var slot: EquipmentSlot.values()) {
+                slotSpecificItemAttributes.add(new SlotSpecificItemAttributes(slot, itemStack.getAttributeModifiers(slot)));
+            }
+            for(var element: slotSpecificItemAttributes) {
+                for(var entry: element.attributes.entries()) {
+                    debug("copyItemAttributesToNBT slot:" +  element.slot + " - adding: " + entry.getKey() + " - modifier: " + entry.getValue());
+                    var attribute = entry.getKey();
+                    itemStack.addAttributeModifier(
+                            attribute,
+                            entry.getValue(),
+                            element.slot
+                    );
+                }
+            }
+        }
+    }
+
+    private static EntityAttributeModifier createEntityAttributeModifier(EquipmentSlot slot, EntityAttribute attribute, String name, double value, EntityAttributeModifier.Operation operation) {
+        UUID hardCodedUUID = null; // = hardCodedUUID(attribute);
+        if (slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND) {
+            hardCodedUUID = hardCodedUUID(attribute);
+        }
+        if (hardCodedUUID != null) {
+            return new EntityAttributeModifier(hardCodedUUID, name, value, operation);
+        } else {
+            return new EntityAttributeModifier(name, value, operation);
+        }
+    }
+
+    private static UUID hardCodedUUID(EntityAttribute entityAttribute) {
+        if (entityAttribute.equals(EntityAttributes.GENERIC_ATTACK_DAMAGE)) {
+            return AttributeAccessor.hardCodedAttackDamageModifier();
+        }
+        if (entityAttribute.equals(EntityAttributes.GENERIC_ATTACK_SPEED)) {
+            return AttributeAccessor.hardCodedAttackSpeedModifier();
+        }
+        return null;
+    }
+
+    public abstract static class AttributeAccessor extends Item {
+        public AttributeAccessor(Settings settings) {
+            super(settings);
+        }
+
+        public static UUID hardCodedAttackDamageModifier() { return ATTACK_DAMAGE_MODIFIER_ID; }
+        public static UUID hardCodedAttackSpeedModifier() { return ATTACK_SPEED_MODIFIER_ID; }
+    }
+
+    private static Double getRoundingUnit() {
+        var config = DungeonDifficulty.config.value;
+        if (config.meta != null && config.meta.rounding_unit != null) {
+            return config.meta.rounding_unit;
+        }
+        return null;
     }
 }
