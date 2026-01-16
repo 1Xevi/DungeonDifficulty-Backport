@@ -2,8 +2,10 @@ package net.dungeon_difficulty.config;
 
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.logic.PatternMatching;
+import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
 import java.util.List;
@@ -93,7 +95,7 @@ public class Default {
                 structureTag("level_4", dungeonDifficulty.name, 4)
         );
         nether.entities = List.of(
-                entitySpecificMatcher(Identifier.ofVanilla("wither"), dungeonDifficulty.name, 3)
+                entitySpecificMatcher(CIdentifier.ofVanilla("wither"), dungeonDifficulty.name, 3)
         );
 
         var end = new Config.Dimension();
@@ -105,7 +107,7 @@ public class Default {
                 structureTag("level_5", dungeonDifficulty.name, 5)
         );
         end.entities = List.of(
-                entitySpecificMatcher(Identifier.ofVanilla("ender_dragon"), dungeonDifficulty.name, 4)
+                entitySpecificMatcher(CIdentifier.ofVanilla("ender_dragon"), dungeonDifficulty.name, 4)
         );
 
         config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
@@ -138,7 +140,7 @@ public class Default {
     }
 
     private static Config.AttributeModifier createAttackDamageMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier(EntityAttributes.GENERIC_ATTACK_DAMAGE.getIdAsString(), value);
+        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ATTACK_DAMAGE).toString(), value);
         modifier.randomness = randomness;
         return modifier;
     }
@@ -156,23 +158,23 @@ public class Default {
     }
 
     private static Config.AttributeModifier createArmorMultiplier(float value) {
-        return new Config.AttributeModifier(EntityAttributes.GENERIC_ARMOR.getIdAsString(), value);
+        return new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
     }
 
     private static Config.AttributeModifier createArmorBonus(float value) {
-        var modifier = new Config.AttributeModifier(EntityAttributes.GENERIC_ARMOR.getIdAsString(), value);
+        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
         modifier.operation = Config.Operation.ADDITION;
         return modifier;
     }
 
     private static Config.AttributeModifier createHealthMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier(EntityAttributes.GENERIC_MAX_HEALTH.getIdAsString(), value);
+        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
         modifier.randomness = randomness;
         return modifier;
     }
 
     private static Config.AttributeModifier createHealthBonus(float value) {
-        var modifier = new Config.AttributeModifier(EntityAttributes.GENERIC_MAX_HEALTH.getIdAsString(), value);
+        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
         modifier.operation = Config.Operation.ADDITION;
         return modifier;
     }
