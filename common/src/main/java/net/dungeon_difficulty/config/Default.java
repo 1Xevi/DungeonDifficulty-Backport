@@ -28,6 +28,12 @@ public class Default {
                         0.2F)
         );
 
+        var meta = new Config.Meta();
+        meta.global_loot_scaling = true;
+        meta.rounding_unit = 0.5;
+        meta.merge_item_modifiers = true;
+        meta.sanitize_config = true;
+
         var dungeonDifficulty = new Config.DifficultyType("dungeon");
         dungeonDifficulty.allow_loot_scaling = true;
         dungeonDifficulty.parent = normalDifficulty.name;
