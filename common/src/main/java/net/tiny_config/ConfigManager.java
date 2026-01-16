@@ -1,8 +1,8 @@
-package net.tinyconfig;
+package net.tiny_config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.tinyconfig.versioning.Versionable;
+import net.tiny_config.versioning.Versionable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

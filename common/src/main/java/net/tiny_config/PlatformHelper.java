@@ -1,4 +1,4 @@
-package net.tinyconfig;
+package net.tiny_config;
 
 import java.nio.file.Path;
 
