@@ -3,17 +3,22 @@ package net.dungeon_difficulty.logic;
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.mixin.AccessorAttributeContainer;
 import net.dungeon_difficulty.mixin.AccessorDefaultAttributeContainer;
+import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttribute;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 public class EntityScaling {
     public static void scale(Entity entity, ServerWorld world) {
@@ -50,31 +55,31 @@ public class EntityScaling {
     private static void apply(PatternMatching.EntityScaleResult scaling, LivingEntity entity) {
         var level = scaling.level();
         if (level <= 0) { return; }
-        for (var modifier: scaling.modifiers()) {
+        for (var modifier : scaling.modifiers()) {
             var pattern = modifier.attribute;
             if (pattern == null || pattern.isEmpty()) {
                 continue;
             }
 
-            ArrayList< RegistryEntry< EntityAttribute>> matchingAttributes = new ArrayList<>();
+            ArrayList<EntityAttribute> matchingAttributes = new ArrayList<>();
             if (pattern.startsWith(PatternMatching.REGEX_PREFIX)) {
                 var regex = pattern.substring(PatternMatching.REGEX_PREFIX.length());
                 var instances = ((AccessorDefaultAttributeContainer)
                             (AccessorAttributeContainer)entity.getAttributes())
                         .getInstances();
                 for (var entry : instances.entrySet()) {
-                    var key = entry.getKey();
-                    if (key == null || key.value() == null) { continue; }
-                    var id = key.value().toString();
+                    var attribute = entry.getKey().value();
+
+                    if (attribute == null) { continue; }
+                    var id = attribute.toString();
+
                     if (PatternMatching.regexMatches(id, regex)) {
-                        matchingAttributes.add(entry.getKey());
+                        matchingAttributes.add(attribute);
                     }
                 }
             } else {
-                var attribute = Registries.ATTRIBUTE.getEntry(Identifier.of(modifier.attribute)).orElse(null);
-                if (attribute == null || !entity.getAttributes().hasAttribute(attribute)) {
-                    continue;
-                }
+                var attribute = Registries.ATTRIBUTE.get(CIdentifier.of(modifier.attribute));
+                if (attribute == null || !entity.getAttributes().hasAttribute(attribute)) { continue; }
                 matchingAttributes.add(attribute);
             }
 
@@ -82,16 +87,19 @@ public class EntityScaling {
             var roundingUnit = modifier.value * 0.25F;
             modifierValue = (float) MathHelper.round(modifierValue, roundingUnit);
 
-            var id = Identifier.of(DungeonDifficulty.MODID, scaling.name());
+            var id = CIdentifier.of(DungeonDifficulty.MODID, scaling.name());
 
             for (var attribute: matchingAttributes) {
                 var operation = switch (modifier.operation) {
-                    case ADDITION -> EntityAttributeModifier.Operation.ADD_VALUE;
-                    case MULTIPLY_BASE -> EntityAttributeModifier.Operation.ADD_MULTIPLIED_BASE;
+                    case ADDITION -> EntityAttributeModifier.Operation.ADDITION;
+                    case MULTIPLY_BASE -> EntityAttributeModifier.Operation.MULTIPLY_BASE;
                 };
-                var entityModifier = new EntityAttributeModifier(id, modifierValue, operation);
+
+                var modifierUuid = UUID.nameUUIDFromBytes(id.toString().getBytes());
+                var entityModifier = new EntityAttributeModifier(modifierUuid, id.toString(), modifierValue, operation);
                 var instance = entity.getAttributeInstance(attribute);
-                if (instance != null && !instance.hasModifier(id)) {
+
+                if (instance != null && !instance.hasModifier(entityModifier)) {
                     instance.addPersistentModifier(entityModifier);
                 }
             }
