@@ -38,30 +38,6 @@ public class ItemScaling {
     }
 
     public static void initialize() {
-        // Some other mods (MineColonies) attempt to reserialize the loot table
-        // this crashes anonym LootFunction implementations
-
-//        LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
-//            LootFunction function = new LootFunction() {
-//                @Override
-//                public LootFunctionType getType() {
-//                    return LootFunctionTypes.SET_ATTRIBUTES;
-//                }
-//
-//                @Override
-//                public ItemStack apply(ItemStack itemStack, LootContext lootContext) {
-//                    var lootTableId = key;
-//                    var position = lootContext.get(LootContextParameters.ORIGIN);
-//                    BlockPos blockPosition = null;
-//                    if (position != null) {
-//                        blockPosition = BlockPos.ofFloored(position);
-//                    }
-//                    scale(itemStack, lootContext.getWorld(), blockPosition, lootTableId.getValue());
-//                    return itemStack;
-//                }
-//            };
-//            tableBuilder.apply(function);
-//        });
         LootTableEvents.MODIFY.register((key, tableBuilder, source, registries) -> {
             var function = new LocalScalingLootFunction(List.of(), key.getValue());
             tableBuilder.apply(function);
