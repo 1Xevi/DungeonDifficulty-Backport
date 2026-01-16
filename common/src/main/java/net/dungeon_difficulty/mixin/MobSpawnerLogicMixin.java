@@ -3,12 +3,15 @@ package net.dungeon_difficulty.mixin;
 import net.dungeon_difficulty.DungeonDifficulty;
 import net.dungeon_difficulty.logic.MathHelper;
 import net.dungeon_difficulty.logic.PatternMatching;
-import net.minecraft.block.spawner.MobSpawnerEntry;
-import net.minecraft.block.spawner.MobSpawnerLogic;
+import net.dungeon_difficulty.util.Compat.CIdentifier;
+import net.minecraft.world.MobSpawnerEntry;
+import net.minecraft.world.MobSpawnerLogic;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
@@ -48,8 +51,9 @@ public class MobSpawnerLogicMixin {
                 RegistryEntry<EntityType<?>> typeEntry = null;
                 var isMonster = false;
                 if (entityIdString != null && !entityIdString.isEmpty()) {
-                    var id = Identifier.of(entityIdString);
-                    typeEntry = Registries.ENTITY_TYPE.getEntry(id).orElse(null);
+                    var id = CIdentifier.of(entityIdString);
+                    typeEntry = Registries.ENTITY_TYPE.getEntry(RegistryKey.of(RegistryKeys.ENTITY_TYPE, id)).orElse(null);
+
                     if (typeEntry != null) {
                         var entityType = typeEntry.value();
                         var testEntity = entityType.create(world);
