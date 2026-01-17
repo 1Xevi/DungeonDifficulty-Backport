@@ -18,6 +18,9 @@
     ],
     "client": [
       "net.dungeon_difficulty.fabric.client.FabricClientMod"
+    ],
+    "modmenu": [
+      "net.dungeon_difficulty.fabric.ModMenuIntegration"
     ]
   },
   "mixins": [
