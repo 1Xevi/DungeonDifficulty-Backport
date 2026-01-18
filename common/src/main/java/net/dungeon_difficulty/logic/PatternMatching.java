@@ -1,7 +1,6 @@
 package net.dungeon_difficulty.logic;
 
-import net.dungeon_difficulty.DungeonDifficulty;
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -21,6 +20,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.gen.structure.Structure;
 import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.transformer.Config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +41,7 @@ public class PatternMatching {
             return new LocationData(dimensionId, position, biome);
         }
 
-        public boolean matches(Config.Dimension.Filters filters) {
+        public boolean matches(ConfigServer.Dimension.Filters filters) {
             if (filters == null) {
                 return true;
             }
@@ -71,7 +71,7 @@ public class PatternMatching {
             }
         }
 
-        public Match matches(Config.Zone.Filters filters, @Nullable ServerWorld world) {
+        public Match matches(ConfigServer.Zone.Filters filters, @Nullable ServerWorld world) {
             if (filters == null || biome == null) {
                 return Match.trueMatch();
             }
@@ -134,7 +134,7 @@ public class PatternMatching {
             RegistryEntry<Item> itemEntry,
             String rarity) {
 
-        public boolean matches(Config.ItemModifier.Filters filters) {
+        public boolean matches(ConfigServer.ItemModifier.Filters filters) {
             if (filters == null) {
                 return true;
             }
@@ -150,8 +150,8 @@ public class PatternMatching {
         ARMOR, WEAPONS
     }
 
-    public record ItemScaleResult(List<Config.AttributeModifier> modifiers, int level) { }
-    public static ItemScaleResult getModifiersForItem(LocationData locationData, ItemData itemData, ServerWorld world, @Nullable Config.Rewards scaling) {
+    public record ItemScaleResult(List<ConfigServer.AttributeModifier> modifiers, int level) { }
+    public static ItemScaleResult getModifiersForItem(LocationData locationData, ItemData itemData, ServerWorld world, @Nullable ConfigServer.Rewards scaling) {
         var result = getDifficultyResult(locationData, itemData.lootTableId(), ScalingGoal.LOOT, world);
         var level = 0;
         if (result != null && result.difficulty() != null && result.difficulty().allowsLootScaling()) { // !
@@ -160,10 +160,10 @@ public class PatternMatching {
         return getItemScaleResult(itemData, scaling, level);
     }
     
-    public static ItemScaleResult getItemScaleResult(ItemData itemData, @Nullable Config.Rewards scaling, int level) {
-        var attributeModifiers = new ArrayList<Config.AttributeModifier>();
+    public static ItemScaleResult getItemScaleResult(ItemData itemData, @Nullable ConfigServer.Rewards scaling, int level) {
+        var attributeModifiers = new ArrayList<ConfigServer.AttributeModifier>();
         if (scaling != null && level > 0) {
-            List<Config.ItemModifier> itemModifiers = null;
+            List<ConfigServer.ItemModifier> itemModifiers = null;
             switch (itemData.kind) {
                 case ARMOR -> {
                     itemModifiers = scaling.armor;
@@ -193,7 +193,7 @@ public class PatternMatching {
         public Identifier entityId() {
             return type != null ? type.getKey().get().getValue() : UNKNOWN;
         }
-        public boolean matches(Config.EntityModifier.Filters filters) {
+        public boolean matches(ConfigServer.EntityModifier.Filters filters) {
             if (filters == null) {
                 return true;
             }
@@ -218,12 +218,12 @@ public class PatternMatching {
         }
     }
 
-    public record EntityScaleResult(String name, List<Config.AttributeModifier> modifiers, int level, float experienceMultiplier) {
+    public record EntityScaleResult(String name, List<ConfigServer.AttributeModifier> modifiers, int level, float experienceMultiplier) {
         public static final EntityScaleResult EMPTY = new EntityScaleResult("none", List.of(), 0, 0);
     }
 
     public static EntityScaleResult getAttributeModifiersForEntity(LocationData locationData, EntityData entityData, ServerWorld world) {
-        var attributeModifiers = new ArrayList<Config.AttributeModifier>();
+        var attributeModifiers = new ArrayList<ConfigServer.AttributeModifier>();
 //        if (entityData.entityId.toString().contains("warden")) {
 //            System.out.println("Warden entity detected: " + entityData.entityId);
 //        }
@@ -251,10 +251,10 @@ public class PatternMatching {
         return new EntityScaleResult("location", attributeModifiers, level, experienceMultiplier);
     }
 
-    public record SpawnerScaleResult(List<Config.SpawnerModifier> modifiers, int level) { }
+    public record SpawnerScaleResult(List<ConfigServer.SpawnerModifier> modifiers, int level) { }
 
     public static SpawnerScaleResult getModifiersForSpawner(LocationData locationData, EntityData entityData, ServerWorld world) {
-        var spawnerModifiers = new ArrayList<Config.SpawnerModifier>();
+        var spawnerModifiers = new ArrayList<ConfigServer.SpawnerModifier>();
         var difficulty = getDifficulty(locationData, world);
         int level = 0;
         if (difficulty != null) {
@@ -271,8 +271,8 @@ public class PatternMatching {
         return new SpawnerScaleResult(spawnerModifiers, level);
     }
 
-    public static List<Config.EntityModifier> getModifiersForEntity(List<Config.EntityModifier> definitions, EntityData entityData) {
-        var entityModifiers = new ArrayList<Config.EntityModifier>();
+    public static List<ConfigServer.EntityModifier> getModifiersForEntity(List<ConfigServer.EntityModifier> definitions, EntityData entityData) {
+        var entityModifiers = new ArrayList<ConfigServer.EntityModifier>();
         for(var entityModifier: definitions) {
             if (entityData.matches(entityModifier.entity_matches)) {
                 entityModifiers.add(entityModifier);
@@ -313,7 +313,7 @@ public class PatternMatching {
 
     @Nullable
     public static DifficultySearchResult getDifficultyResult(LocationData locationData, @Nullable Identifier sourceId, ScalingGoal scalingGoal, ServerWorld world) {
-        for (var dimension : DungeonDifficulty.config.value.dimensions) {
+        for (var dimension : ConfigServer.fetch().dimensions) {
             if (locationData.matches(dimension.world_matches)) {
                 DifficultySearchResult zoneResult = null;
                 if (dimension.zones != null) {
@@ -365,7 +365,7 @@ public class PatternMatching {
         }
     }
 
-    private static @Nullable DifficultySearchResult matchEntityDifficulty(LocationData locationData, @Nullable Identifier sourceId, ScalingGoal scalingGoal, List<Config.EntityMatcher> matchers) {
+    private static @Nullable DifficultySearchResult matchEntityDifficulty(LocationData locationData, @Nullable Identifier sourceId, ScalingGoal scalingGoal, List<ConfigServer.EntityMatcher> matchers) {
         if (sourceId != null) {
             for (var entityMatcher : matchers) {
                 switch (scalingGoal) {
@@ -396,7 +396,7 @@ public class PatternMatching {
     }
 
     @Nullable
-    private static Difficulty findDifficulty(Config.DifficultyReference reference) {
+    private static Difficulty findDifficulty(ConfigServer.DifficultyReference reference) {
         if (reference == null) {
             return null;
         }

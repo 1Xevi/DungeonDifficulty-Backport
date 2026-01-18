@@ -3,8 +3,7 @@ package net.dungeon_difficulty.logic;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
-import net.dungeon_difficulty.DungeonDifficulty;
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.minecraft.item.ItemStack;
 import net.minecraft.loot.condition.LootCondition;
@@ -42,7 +41,7 @@ public class LocalScalingLootFunction extends ConditionalLootFunction {
 
     @Override
     public ItemStack process(ItemStack itemStack, LootContext lootContext) {
-        if (!DungeonDifficulty.config.value.meta.global_loot_scaling) {
+        if (!ConfigServer.fetch().meta.global_loot_scaling) {
             return itemStack;
         }
 

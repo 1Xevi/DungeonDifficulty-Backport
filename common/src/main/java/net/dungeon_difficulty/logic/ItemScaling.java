@@ -2,8 +2,7 @@ package net.dungeon_difficulty.logic;
 
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
-import net.dungeon_difficulty.DungeonDifficulty;
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.fabricmc.fabric.api.loot.v2.LootTableEvents;
 import net.minecraft.entity.EquipmentSlot;
@@ -18,7 +17,6 @@ import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.server.world.ServerWorld;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.util.*;
@@ -54,7 +52,7 @@ public class ItemScaling {
         var rarity = itemStack.getRarity().toString();
         var dimensionId = world.getRegistryKey().getValue().toString(); // Just for logging
         var position = locationData.position();
-        var scaling = DungeonDifficulty.config.value.loot_scaling;
+        var scaling = ConfigServer.fetch().loot_scaling;
 
         if (itemStack.getItem() instanceof ToolItem || itemStack.getItem() instanceof RangedWeaponItem) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.WEAPONS, lootTableId, itemEntry, rarity);
@@ -104,7 +102,7 @@ public class ItemScaling {
         var itemId = Registries.ITEM.getId(itemStack.getItem()).toString();
         var rarity = itemStack.getRarity().toString();
         var lootTableId = CIdentifier.ofVanilla("none");
-        var scaling = DungeonDifficulty.config.value.loot_scaling;
+        var scaling = ConfigServer.fetch().loot_scaling;
 
         if (itemStack.getItem() instanceof ToolItem || itemStack.getItem() instanceof RangedWeaponItem) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.WEAPONS, lootTableId, itemEntry, rarity);
@@ -159,7 +157,7 @@ public class ItemScaling {
             EquipmentSlot slot,
             Multimap<EntityAttribute, EntityAttributeModifier> attributes) { }
 
-    private static void applyModifiers(List<EquipmentSlot> slots, String itemId, ItemStack itemStack, List<Config.AttributeModifier> modifiers, int level) {
+    private static void applyModifiers(List<EquipmentSlot> slots, String itemId, ItemStack itemStack, List<ConfigServer.AttributeModifier> modifiers, int level) {
         if (modifiers.isEmpty() || level == 0) {
             return;
         }
@@ -174,7 +172,7 @@ public class ItemScaling {
 
             var element = summary.getOrDefault(modifier.attribute, new ModifierSummary(0, 0));
 
-            if (modifier.operation == Config.Operation.ADDITION) {
+            if (modifier.operation == ConfigServer.Operation.ADDITION) {
                 element = element.add(value);
             } else {
                 element = element.multiplyBase(value);
@@ -330,7 +328,7 @@ public class ItemScaling {
     }
 
     private static Double getRoundingUnit() {
-        var config = DungeonDifficulty.config.value;
+        var config = ConfigServer.fetch();
         if (config.meta != null && config.meta.rounding_unit != null) {
             return config.meta.rounding_unit;
         }

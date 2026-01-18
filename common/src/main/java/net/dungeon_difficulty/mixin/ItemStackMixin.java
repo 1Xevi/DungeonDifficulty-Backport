@@ -3,6 +3,7 @@ package net.dungeon_difficulty.mixin;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.dungeon_difficulty.DungeonDifficulty;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.logic.RarityHelper;
 import net.minecraft.client.item.TooltipContext;
 // import net.minecraft.component.ComponentType;
@@ -37,7 +38,7 @@ public class ItemStackMixin {
     private void injected(CallbackInfoReturnable<Rarity> cir) {
         var itemStack = itemStack();
         var rarity = cir.getReturnValue();
-        var config = DungeonDifficulty.config.value;
+        var config = ConfigServer.fetch();
         if (config.meta.enable_overriding_enchantment_rarity && itemStack.hasEnchantments()) {
             rarity = RarityHelper.increasedRarity(rarity, 1);
         }

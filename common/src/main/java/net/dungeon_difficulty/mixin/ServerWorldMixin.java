@@ -1,7 +1,7 @@
 package net.dungeon_difficulty.mixin;
-
-import net.dungeon_difficulty.DungeonDifficulty;
+;
 import net.dungeon_difficulty.Platform;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.logic.DifficultyHandler;
 import net.dungeon_difficulty.logic.ScalingGoal;
 import net.dungeon_difficulty.util.LanguageUtil;
@@ -40,7 +40,7 @@ public abstract class ServerWorldMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void pre_tick(CallbackInfo ci) {
         var world = (ServerWorld) ((Object)this);
-        var config = DungeonDifficulty.config.value.announcement;
+        var config = ConfigServer.fetch().announcement;
         if (!config.enabled) {
             return;
         }
@@ -81,7 +81,7 @@ public abstract class ServerWorldMixin {
             }
         }
         announcements.add(announcement);
-        var config = DungeonDifficulty.config.value.announcement;
+        var config = ConfigServer.fetch().announcement;
         if (announcements.size() > config.history_size) {
             announcements.remove(0);
         }

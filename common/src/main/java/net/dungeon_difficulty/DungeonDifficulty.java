@@ -1,7 +1,9 @@
 package net.dungeon_difficulty;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.dungeon_difficulty.config.Config;
+import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.serializer.GsonConfigSerializer;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.config.Default;
 import net.dungeon_difficulty.logic.DifficultyHandler;
 import net.dungeon_difficulty.logic.DifficultyTypes;
@@ -12,36 +14,22 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.server.command.CommandManager;
-import net.tiny_config.ConfigManager;
 
 public class DungeonDifficulty {
     public static final String MODID = "dungeon_difficulty";
 
-    public static ConfigManager<Config> config = new ConfigManager<>
-            ("difficulty_v2", Default.config)
-            .builder()
-            .setDirectory(MODID)
-            .sanitize(true)
-            .build();
-
     public static void init() {
-        reloadConfig();
+        AutoConfig.register(ConfigServer.class, GsonConfigSerializer::new);
         ItemScaling.initialize();
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(CommandManager.literal(MODID + "_config_reload").executes(context -> {
-                System.out.println("Reloading Dungeon Difficulty config");
-                DungeonDifficulty.reloadConfig();
-                try {
-                    for (var player: context.getSource().getServer().getPlayerManager().getPlayerList()) {
-                        ((DifficultyHandler)player).getLastDifficultyAnnouncements().clear();
-                    }
-                } catch (Exception e) {
-                    // ignore
-                }
-//                var gson = new GsonBuilder().setPrettyPrinting().create();
-//                System.out.println("Resolved difficulty types: " + gson.toJson(DifficultyTypes.resolved));
-//                System.out.println("Full: " + gson.toJson(DungeonDifficulty.config.value));
+                System.out.println("Reloading config...");
+
+                // New Reload Logic
+                AutoConfig.getConfigHolder(ConfigServer.class).load();
+                DifficultyTypes.resolve();
+
                 return 1;
             }));
         });
@@ -67,19 +55,6 @@ public class DungeonDifficulty {
                     )
             );
         });
-    }
-
-    public static void reloadConfig() {
-        config.load();
-        var config = DungeonDifficulty.config.value;
-        if (config.meta != null) {
-            DungeonDifficulty.config.sanitize = config.meta.sanitize_config;
-        }
-        DifficultyTypes.resolve();
-        DungeonDifficulty.config.save();
-
-//        var gson = new GsonBuilder().setPrettyPrinting().create();
-//        System.out.println("PowerScale config refreshed: " + gson.toJson(DungeonDifficulty.config.value));
     }
 
     public static void registerLootFunctions() {

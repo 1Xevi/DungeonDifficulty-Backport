@@ -1,20 +1,20 @@
 package net.dungeon_difficulty.logic;
 
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
 import java.util.Objects;
 
-public record Difficulty(Config.DifficultyType type,
+public record Difficulty(ConfigServer.DifficultyType type,
                          int level,
                          int entityLevel,
                          int rewardLevel) {
-    private static final Config.DifficultyType EMPTY_TYPE = new Config.DifficultyType("empty");
+    private static final ConfigServer.DifficultyType EMPTY_TYPE = new ConfigServer.DifficultyType("empty");
     public static final Difficulty EMPTY = new Difficulty(EMPTY_TYPE, 0, 0, 0);
 
-    public Difficulty withType(Config.DifficultyType newType) {
+    public Difficulty withType(ConfigServer.DifficultyType newType) {
         return new Difficulty(newType, level, entityLevel, rewardLevel);
     }
 

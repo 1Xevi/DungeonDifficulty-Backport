@@ -1,25 +1,24 @@
 package net.dungeon_difficulty.logic;
 
-import net.dungeon_difficulty.DungeonDifficulty;
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
+import net.dungeon_difficulty.config.ConfigServer.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class DifficultyTypes {
-    public static List<Config.DifficultyType> resolved = List.of();
+    public static List<DifficultyType> resolved = new ArrayList<>();
 
     public static void resolve() {
-        var resolved = new ArrayList<Config.DifficultyType>();
-        var types = DungeonDifficulty.config.value.difficulty_types;
-        for (var type: DungeonDifficulty.config.value.difficulty_types) {
-            resolved.add(resolve(type, types));
-        }
-        DifficultyTypes.resolved = resolved;
+        resolved.clear();
+
+        var config = ConfigServer.fetch();
+        var types = config.difficulty_types;
+        for (var type: types) resolved.add(resolve(type, types));
     }
 
-    private static Config.DifficultyType resolve(Config.DifficultyType type, List<Config.DifficultyType> types) {
+    private static DifficultyType resolve(DifficultyType type, List<ConfigServer.DifficultyType> types) {
         if (type.parent != null && !type.parent.isEmpty()) {
             var parent = types.stream()
                     .filter(otherType -> type.parent.equals(otherType.name))
@@ -32,15 +31,15 @@ public class DifficultyTypes {
         return type;
     }
 
-    private static Config.DifficultyType copy(Config.DifficultyType type) {
-        var copy = new Config.DifficultyType();
+    private static DifficultyType copy(DifficultyType type) {
+        var copy = new DifficultyType();
         copy.name = type.name;
         copy.parent = type.parent;
         copy.entities = type.entities;
         return copy;
     }
 
-    private static Config.DifficultyType merge(Config.DifficultyType t1, Config.DifficultyType t2) {
+    private static ConfigServer.DifficultyType merge(ConfigServer.DifficultyType t1, ConfigServer.DifficultyType t2) {
         var merged = copy(t1);
         merged.entities = Stream.concat(t1.entities.stream(), t2.entities.stream()).toList();
         merged.allow_loot_scaling = t2.allow_loot_scaling;

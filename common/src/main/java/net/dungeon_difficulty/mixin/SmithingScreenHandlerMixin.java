@@ -2,7 +2,7 @@ package net.dungeon_difficulty.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import net.dungeon_difficulty.DungeonDifficulty;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.logic.ItemScaling;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.SmithingRecipe;
@@ -14,6 +14,7 @@ import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.SmithingScreenHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.transformer.Config;
 
 @Mixin(SmithingScreenHandler.class)
 public class SmithingScreenHandlerMixin {
@@ -30,7 +31,7 @@ public class SmithingScreenHandlerMixin {
         var input = SmithingInput.from(inventory);
         var crafted = original.call(instance, inventory, registryManager);
 
-        var config = DungeonDifficulty.config.value;
+        var config = ConfigServer.fetch();
         var lootScaling = config.loot_scaling;
         if (lootScaling != null && lootScaling.smithing_upgrade.enabled
                 && !input.template().isEmpty()

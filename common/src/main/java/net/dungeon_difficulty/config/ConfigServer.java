@@ -1,11 +1,22 @@
 package net.dungeon_difficulty.config;
 
+import me.shedaniel.autoconfig.ConfigData;
+import me.shedaniel.autoconfig.AutoConfig;
+import me.shedaniel.autoconfig.annotation.Config;
+import net.dungeon_difficulty.DungeonDifficulty;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Random;
 
-public class Config {
+@Config(name = DungeonDifficulty.MODID + "-server")
+public class ConfigServer implements ConfigData {
+    public ConfigServer() {
+
+    }
+
+    public static ConfigServer fetch() { return AutoConfig.getConfigHolder(ConfigServer.class).getConfig(); }
+
     public Meta meta = new Meta();
     public static class Meta { public Meta() { }
         public boolean sanitize_config = true;

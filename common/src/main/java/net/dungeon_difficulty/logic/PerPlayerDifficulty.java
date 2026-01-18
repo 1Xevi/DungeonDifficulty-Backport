@@ -1,16 +1,14 @@
 package net.dungeon_difficulty.logic;
 
-import net.dungeon_difficulty.DungeonDifficulty;
-import net.dungeon_difficulty.config.Config;
+import net.dungeon_difficulty.config.ConfigServer;
 import net.minecraft.server.world.ServerWorld;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class PerPlayerDifficulty {
     public static PatternMatching.EntityScaleResult getAttributeModifiers(PatternMatching.EntityData entityData, ServerWorld world) {
         var empty = PatternMatching.EntityScaleResult.EMPTY;
-        var perPlayer = DungeonDifficulty.config.value.per_player_difficulty;
+        var perPlayer = ConfigServer.fetch().per_player_difficulty;
         if (perPlayer == null || !perPlayer.enabled || perPlayer.entities == null || perPlayer.entities.isEmpty() || perPlayer.counting == null) {
             return empty;
         }
@@ -29,7 +27,7 @@ public class PerPlayerDifficulty {
         }
 
         int applyCount = Math.min(playerCount, perPlayer.cap) - 1;
-        var attributeModifiers = new ArrayList<Config.AttributeModifier>();
+        var attributeModifiers = new ArrayList<ConfigServer.AttributeModifier>();
         for(var entityBaseModifier: perPlayer.entities) {
             if (entityData.matches(entityBaseModifier.entity_matches)) {
                 attributeModifiers.addAll(entityBaseModifier.attributes);

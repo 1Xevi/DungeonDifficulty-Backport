@@ -11,12 +11,12 @@ import net.minecraft.util.Identifier;
 import java.util.List;
 
 public class Default {
-    public static Config config = createDefaultConfig();
+    public static ConfigServer config = createDefaultConfig();
 
-    private static Config createDefaultConfig() {
-        var config = new Config();
+    private static ConfigServer createDefaultConfig() {
+        var config = new ConfigServer();
         // Difficulty types
-        var normalDifficulty = new Config.DifficultyType("adventure");
+        var normalDifficulty = new ConfigServer.DifficultyType("adventure");
         normalDifficulty.entities = List.of(
                 createEntityModifier(null,
                         List.of(
@@ -28,18 +28,18 @@ public class Default {
                         0.2F)
         );
 
-        var meta = new Config.Meta();
+        var meta = new ConfigServer.Meta();
         meta.global_loot_scaling = true;
         meta.rounding_unit = 0.5;
         meta.merge_item_modifiers = true;
         meta.sanitize_config = true;
 
-        var dungeonDifficulty = new Config.DifficultyType("dungeon");
+        var dungeonDifficulty = new ConfigServer.DifficultyType("dungeon");
         dungeonDifficulty.allow_loot_scaling = true;
         dungeonDifficulty.parent = normalDifficulty.name;
 
-        var dungeonSpawners = new Config.SpawnerModifier();
-        dungeonSpawners = new Config.SpawnerModifier();
+        var dungeonSpawners = new ConfigServer.SpawnerModifier();
+        dungeonSpawners = new ConfigServer.SpawnerModifier();
         dungeonSpawners.min_spawn_delay_multiplier = -0.1F;
         dungeonSpawners.max_spawn_delay_multiplier = -0.1F;
         dungeonSpawners.spawn_count_multiplier = 0.5F;
@@ -64,14 +64,14 @@ public class Default {
                 ))
         );
 
-        var heroicDifficulty = new Config.DifficultyType("heroic");
+        var heroicDifficulty = new ConfigServer.DifficultyType("heroic");
         heroicDifficulty.parent = dungeonDifficulty.name;
 
         // Per Player Difficulty
-        var perPlayerDifficulty = new Config.PerPlayerDifficulty();
-        var perPlayerEntityModifier = new Config.EntityModifier();
+        var perPlayerDifficulty = new ConfigServer.PerPlayerDifficulty();
+        var perPlayerEntityModifier = new ConfigServer.EntityModifier();
         if (FabricLoader.getInstance().isModLoaded("the_bumblezone")) {
-            perPlayerEntityModifier.entity_matches = new Config.EntityModifier.Filters();
+            perPlayerEntityModifier.entity_matches = new ConfigServer.EntityModifier.Filters();
             perPlayerEntityModifier.entity_matches.type = PatternMatching.REGEX_PREFIX + "^(?!the_bumblezone:cosmic_crystal_entity).*$";
         }
 
@@ -82,7 +82,7 @@ public class Default {
         perPlayerDifficulty.entities = List.of(perPlayerEntityModifier);
 
         // Surface
-        var overworld = new Config.Dimension();
+        var overworld = new ConfigServer.Dimension();
         overworld.world_matches.dimension = "minecraft:overworld";
         overworld.zones = List.of(
                 structureTag("level_3", dungeonDifficulty.name, 3),
@@ -94,9 +94,9 @@ public class Default {
                 zoneOverrideStructure("bosses", heroicDifficulty.name)
         );
 
-        var nether = new Config.Dimension();
+        var nether = new ConfigServer.Dimension();
         nether.world_matches.dimension = "minecraft:the_nether";
-        nether.difficulty = new Config.DifficultyReference(normalDifficulty.name, 3);
+        nether.difficulty = new ConfigServer.DifficultyReference(normalDifficulty.name, 3);
         nether.zones = List.of(
                 structureTag("level_4", dungeonDifficulty.name, 4)
         );
@@ -104,9 +104,9 @@ public class Default {
                 entitySpecificMatcher(CIdentifier.ofVanilla("wither"), dungeonDifficulty.name, 3)
         );
 
-        var end = new Config.Dimension();
+        var end = new ConfigServer.Dimension();
         end.world_matches.dimension = "minecraft:the_end";
-        end.difficulty = new Config.DifficultyReference(normalDifficulty.name, 4);
+        end.difficulty = new ConfigServer.DifficultyReference(normalDifficulty.name, 4);
         end.zones = List.of(
                 biomeSpecific("minecraft:the_end", heroicDifficulty.name, 5),
                 structureTag("level_6", dungeonDifficulty.name, 6),
@@ -117,18 +117,18 @@ public class Default {
         );
 
         config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
-        config.dimensions = new Config.Dimension[] { overworld, nether, end };
+        config.dimensions = new ConfigServer.Dimension[] { overworld, nether, end };
         config.per_player_difficulty = perPlayerDifficulty;
         return config;
     }
 
-    private static Config.ItemModifier createItemModifier(List<Config.AttributeModifier> attributeModifiers) {
+    private static ConfigServer.ItemModifier createItemModifier(List<ConfigServer.AttributeModifier> attributeModifiers) {
         return createItemModifier(null, null, attributeModifiers);
     }
 
-    private static Config.ItemModifier createItemModifier(String itemIdRegex, String lootTableRegex, List<Config.AttributeModifier> attributeModifiers) {
-        var itemModifier = new Config.ItemModifier();
-        itemModifier.item_matches = new Config.ItemModifier.Filters();
+    private static ConfigServer.ItemModifier createItemModifier(String itemIdRegex, String lootTableRegex, List<ConfigServer.AttributeModifier> attributeModifiers) {
+        var itemModifier = new ConfigServer.ItemModifier();
+        itemModifier.item_matches = new ConfigServer.ItemModifier.Filters();
         if (itemIdRegex != null) {
             itemModifier.item_matches.id = PatternMatching.REGEX_PREFIX + itemIdRegex;
         }
@@ -139,56 +139,56 @@ public class Default {
         return itemModifier;
     }
 
-    private static Config.AttributeModifier createRegexDamageMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier("damage", value);
+    private static ConfigServer.AttributeModifier createRegexDamageMultiplier(float value, float randomness) {
+        var modifier = new ConfigServer.AttributeModifier("damage", value);
         modifier.randomness = randomness;
         return modifier;
     }
 
-    private static Config.AttributeModifier createAttackDamageMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ATTACK_DAMAGE).toString(), value);
+    private static ConfigServer.AttributeModifier createAttackDamageMultiplier(float value, float randomness) {
+        var modifier = new ConfigServer.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ATTACK_DAMAGE).toString(), value);
         modifier.randomness = randomness;
         return modifier;
     }
 
-    private static Config.AttributeModifier createRegexPowerMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier("power", value);
+    private static ConfigServer.AttributeModifier createRegexPowerMultiplier(float value, float randomness) {
+        var modifier = new ConfigServer.AttributeModifier("power", value);
         modifier.randomness = randomness;
         return modifier;
     }
 
-    private static Config.AttributeModifier createProjectileMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier("ranged_weapon:damage", value);
+    private static ConfigServer.AttributeModifier createProjectileMultiplier(float value, float randomness) {
+        var modifier = new ConfigServer.AttributeModifier("ranged_weapon:damage", value);
         modifier.randomness = randomness;
         return modifier;
     }
 
-    private static Config.AttributeModifier createArmorMultiplier(float value) {
-        return new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
+    private static ConfigServer.AttributeModifier createArmorMultiplier(float value) {
+        return new ConfigServer.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
     }
 
-    private static Config.AttributeModifier createArmorBonus(float value) {
-        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
-        modifier.operation = Config.Operation.ADDITION;
+    private static ConfigServer.AttributeModifier createArmorBonus(float value) {
+        var modifier = new ConfigServer.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_ARMOR).toString(), value);
+        modifier.operation = ConfigServer.Operation.ADDITION;
         return modifier;
     }
 
-    private static Config.AttributeModifier createHealthMultiplier(float value, float randomness) {
-        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
+    private static ConfigServer.AttributeModifier createHealthMultiplier(float value, float randomness) {
+        var modifier = new ConfigServer.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
         modifier.randomness = randomness;
         return modifier;
     }
 
-    private static Config.AttributeModifier createHealthBonus(float value) {
-        var modifier = new Config.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
-        modifier.operation = Config.Operation.ADDITION;
+    private static ConfigServer.AttributeModifier createHealthBonus(float value) {
+        var modifier = new ConfigServer.AttributeModifier(Registries.ATTRIBUTE.getId(EntityAttributes.GENERIC_MAX_HEALTH).toString(), value);
+        modifier.operation = ConfigServer.Operation.ADDITION;
         return modifier;
     }
 
-    private static Config.EntityModifier createEntityModifier(String idRegex, List<Config.AttributeModifier> attributeModifiers, Config.SpawnerModifier spawnerModifier, float xpMultiplier) {
-        var entityModifier = new Config.EntityModifier();
+    private static ConfigServer.EntityModifier createEntityModifier(String idRegex, List<ConfigServer.AttributeModifier> attributeModifiers, ConfigServer.SpawnerModifier spawnerModifier, float xpMultiplier) {
+        var entityModifier = new ConfigServer.EntityModifier();
         if (idRegex != null) {
-            entityModifier.entity_matches = new Config.EntityModifier.Filters();
+            entityModifier.entity_matches = new ConfigServer.EntityModifier.Filters();
             entityModifier.entity_matches.type = PatternMatching.REGEX_PREFIX + idRegex;
         }
         entityModifier.attributes = attributeModifiers;
@@ -197,67 +197,67 @@ public class Default {
         return entityModifier;
     }
 
-    private static Config.Zone biomeRegex(String regex, String difficulty, int level) {
-        var zone = new Config.Zone();
+    private static ConfigServer.Zone biomeRegex(String regex, String difficulty, int level) {
+        var zone = new ConfigServer.Zone();
         zone.zone_matches.biome = PatternMatching.REGEX_PREFIX + regex;
-        zone.difficulty = new Config.DifficultyReference(difficulty, level);
+        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return zone;
     }
 
-    private static Config.Zone biomeSpecific(String biome, String difficulty, int level) {
-        var zone = new Config.Zone();
+    private static ConfigServer.Zone biomeSpecific(String biome, String difficulty, int level) {
+        var zone = new ConfigServer.Zone();
         zone.zone_matches.biome = biome;
-        zone.difficulty = new Config.DifficultyReference(difficulty, level);
+        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return zone;
     }
 
-    private static Config.Zone structureId(String id, String difficulty, int level) {
-        var zone = new Config.Zone();
+    private static ConfigServer.Zone structureId(String id, String difficulty, int level) {
+        var zone = new ConfigServer.Zone();
         zone.zone_matches.structure = id;
-        zone.difficulty = new Config.DifficultyReference(difficulty, level);
+        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return zone;
     }
 
-    private static Config.Zone structureTag(String tag, String difficulty, int level) {
-        var zone = new Config.Zone();
+    private static ConfigServer.Zone structureTag(String tag, String difficulty, int level) {
+        var zone = new ConfigServer.Zone();
         zone.zone_matches.structure = "#" + DungeonDifficulty.MODID + ":" + tag;
-        zone.difficulty = new Config.DifficultyReference(difficulty, level);
+        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return zone;
     }
 
-    private static Config.Zone.TypeOverride zoneOverrideStructure(String tag, String difficulty) {
-        var override = new Config.Zone.TypeOverride();
+    private static ConfigServer.Zone.TypeOverride zoneOverrideStructure(String tag, String difficulty) {
+        var override = new ConfigServer.Zone.TypeOverride();
         override.zone_matches.structure = "#" + DungeonDifficulty.MODID + ":" + tag;
         override.difficulty_name = difficulty;
         return override;
     }
 
-    private static Config.Zone.TypeOverride zoneOverrideBiome(String biome, String difficulty) {
-        var override = new Config.Zone.TypeOverride();
+    private static ConfigServer.Zone.TypeOverride zoneOverrideBiome(String biome, String difficulty) {
+        var override = new ConfigServer.Zone.TypeOverride();
         override.zone_matches.biome = biome;
         override.difficulty_name = difficulty;
         return override;
     }
 
-    private static Config.EntityMatcher entityTypeMatcher(String type, String difficulty, int level) {
-        var entityMatcher = new Config.EntityMatcher();
+    private static ConfigServer.EntityMatcher entityTypeMatcher(String type, String difficulty, int level) {
+        var entityMatcher = new ConfigServer.EntityMatcher();
         entityMatcher.entity_type = type;
-        entityMatcher.difficulty = new Config.DifficultyReference(difficulty, level);
+        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return entityMatcher;
     }
 
-    private static Config.EntityMatcher entityLootTableMatcher(String lootTable, String difficulty, int level) {
-        var entityMatcher = new Config.EntityMatcher();
+    private static ConfigServer.EntityMatcher entityLootTableMatcher(String lootTable, String difficulty, int level) {
+        var entityMatcher = new ConfigServer.EntityMatcher();
         entityMatcher.loot_table = lootTable;
-        entityMatcher.difficulty = new Config.DifficultyReference(difficulty, level);
+        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return entityMatcher;
     }
 
-    private static Config.EntityMatcher entitySpecificMatcher(Identifier entityId, String difficulty, int level) {
-        var entityMatcher = new Config.EntityMatcher();
+    private static ConfigServer.EntityMatcher entitySpecificMatcher(Identifier entityId, String difficulty, int level) {
+        var entityMatcher = new ConfigServer.EntityMatcher();
         entityMatcher.entity_type = entityId.toString();
         entityMatcher.loot_table = entityId.getNamespace() + ":" + "entities/" + entityId.getPath();
-        entityMatcher.difficulty = new Config.DifficultyReference(difficulty, level);
+        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
         return entityMatcher;
     }
 }
