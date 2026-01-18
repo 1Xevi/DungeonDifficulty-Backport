@@ -12,6 +12,8 @@ public class Config {
         public Double rounding_unit = 0.5;
         public boolean merge_item_modifiers = true;
         public boolean global_loot_scaling = true;
+        public boolean enable_overriding_enchantment_rarity = true;
+        public boolean enable_scaled_items_rarity = true;
     }
 
     public Announcement announcement = new Announcement();

@@ -1,7 +1,6 @@
 package net.dungeon_difficulty;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.dungeon_difficulty.config.ClientConfig;
 import net.dungeon_difficulty.config.Config;
 import net.dungeon_difficulty.config.Default;
 import net.dungeon_difficulty.logic.DifficultyHandler;
@@ -25,15 +24,7 @@ public class DungeonDifficulty {
             .sanitize(true)
             .build();
 
-    public static ConfigManager<ClientConfig> clientConfig = new ConfigManager<>
-            ("client_settings", new ClientConfig())
-            .builder()
-            .setDirectory(MODID)
-            .sanitize(true)
-            .build();
-
     public static void init() {
-        clientConfig.refresh();
         reloadConfig();
         ItemScaling.initialize();
 

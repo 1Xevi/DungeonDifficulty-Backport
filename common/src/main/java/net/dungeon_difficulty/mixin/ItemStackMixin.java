@@ -36,11 +36,12 @@ public class ItemStackMixin {
     @Inject(method = "getRarity", at = @At("RETURN"), cancellable = true)
     private void injected(CallbackInfoReturnable<Rarity> cir) {
         var itemStack = itemStack();
-        Rarity rarity = cir.getReturnValue();
-        if (DungeonDifficulty.clientConfig.value.enable_overriding_enchantment_rarity && itemStack.hasEnchantments()) {
+        var rarity = cir.getReturnValue();
+        var config = DungeonDifficulty.config.value;
+        if (config.meta.enable_overriding_enchantment_rarity && itemStack.hasEnchantments()) {
             rarity = RarityHelper.increasedRarity(rarity, 1);
         }
-        if (DungeonDifficulty.clientConfig.value.enable_scaled_items_rarity
+        if (config.meta.enable_scaled_items_rarity
                 && ItemScaling.isScaled(itemStack)) {
             rarity = RarityHelper.increasedRarity(rarity, 1);
         }
