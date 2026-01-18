@@ -67,7 +67,7 @@ public class Default {
 
         config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
 
-        // Per Player Difficulty
+        // per player difficulty
         var perPlayerDifficulty = new ConfigServer.PerPlayerDifficulty();
         var perPlayerEntityModifier = new ConfigServer.EntityModifier();
         if (FabricLoader.getInstance().isModLoaded("the_bumblezone")) {
@@ -83,31 +83,31 @@ public class Default {
 
         config.per_player_difficulty = perPlayerDifficulty;
 
-        // Surface
+        // surface
         config.scaling_rules = new ArrayList<>();
 
-        // 1. OVERWORLD TREE
+        // OVERWORLD TREE
         var overworld = ruleDim("minecraft:overworld", null, 0);
 
-        // Nest the old "Zones" as overrides
+        // nest the old Zones as overrides
         overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_3", "dungeon", 3));
         overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_2", "dungeon", 2));
         overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_1", "dungeon", 1));
         overworld.overrides.add(ruleBiomeRegex("desert|frozen|snowy|ice|jungle", "adventure", 1));
 
-        // Old "ZoneSpecifier" (Bosses) is just another override now!
+        // old ZoneSpecifier (Bosses) is just another override.
         overworld.overrides.add(ruleStructure("#dungeon_difficulty:bosses", "heroic", 0));
 
         config.scaling_rules.add(overworld);
 
-        // 2. NETHER TREE
+        // NETHER TREE
         var nether = ruleDim("minecraft:the_nether", "adventure", 3);
         nether.overrides.add(ruleStructure("#dungeon_difficulty:level_4", "dungeon", 4));
         nether.overrides.add(ruleEntity("minecraft:wither", "dungeon", 3));
 
         config.scaling_rules.add(nether);
 
-        // 3. END TREE
+        // END TREE
         var end = ruleDim("minecraft:the_end", "adventure", 4);
         end.overrides.add(ruleBiome("minecraft:the_end", "heroic", 5));
         end.overrides.add(ruleStructure("#dungeon_difficulty:level_6", "dungeon", 6));
