@@ -9,12 +9,10 @@ import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class Default {
-    public static ConfigServer config = createDefaultConfig();
-
-    private static ConfigServer createDefaultConfig() {
-        var config = new ConfigServer();
+    public static void populate(ConfigServer config) {
         // Difficulty types
         var normalDifficulty = new ConfigServer.DifficultyType("adventure");
         normalDifficulty.entities = List.of(
@@ -67,6 +65,8 @@ public class Default {
         var heroicDifficulty = new ConfigServer.DifficultyType("heroic");
         heroicDifficulty.parent = dungeonDifficulty.name;
 
+        config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
+
         // Per Player Difficulty
         var perPlayerDifficulty = new ConfigServer.PerPlayerDifficulty();
         var perPlayerEntityModifier = new ConfigServer.EntityModifier();
@@ -81,45 +81,40 @@ public class Default {
         );
         perPlayerDifficulty.entities = List.of(perPlayerEntityModifier);
 
-        // Surface
-        var overworld = new ConfigServer.Dimension();
-        overworld.world_matches.dimension = "minecraft:overworld";
-        overworld.zones = List.of(
-                structureTag("level_3", dungeonDifficulty.name, 3),
-                structureTag("level_2", dungeonDifficulty.name, 2),
-                structureTag("level_1", dungeonDifficulty.name, 1),
-                biomeRegex("desert|frozen|snowy|ice|jungle", normalDifficulty.name, 1)
-        );
-        overworld.zone_specifiers = List.of(
-                zoneOverrideStructure("bosses", heroicDifficulty.name)
-        );
-
-        var nether = new ConfigServer.Dimension();
-        nether.world_matches.dimension = "minecraft:the_nether";
-        nether.difficulty = new ConfigServer.DifficultyReference(normalDifficulty.name, 3);
-        nether.zones = List.of(
-                structureTag("level_4", dungeonDifficulty.name, 4)
-        );
-        nether.entities = List.of(
-                entitySpecificMatcher(CIdentifier.ofVanilla("wither"), dungeonDifficulty.name, 3)
-        );
-
-        var end = new ConfigServer.Dimension();
-        end.world_matches.dimension = "minecraft:the_end";
-        end.difficulty = new ConfigServer.DifficultyReference(normalDifficulty.name, 4);
-        end.zones = List.of(
-                biomeSpecific("minecraft:the_end", heroicDifficulty.name, 5),
-                structureTag("level_6", dungeonDifficulty.name, 6),
-                structureTag("level_5", dungeonDifficulty.name, 5)
-        );
-        end.entities = List.of(
-                entitySpecificMatcher(CIdentifier.ofVanilla("ender_dragon"), dungeonDifficulty.name, 4)
-        );
-
-        config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
-        config.dimensions = new ConfigServer.Dimension[] { overworld, nether, end };
         config.per_player_difficulty = perPlayerDifficulty;
-        return config;
+
+        // Surface
+        config.scaling_rules = new ArrayList<>();
+
+        // 1. OVERWORLD TREE
+        var overworld = ruleDim("minecraft:overworld", null, 0);
+
+        // Nest the old "Zones" as overrides
+        overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_3", "dungeon", 3));
+        overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_2", "dungeon", 2));
+        overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_1", "dungeon", 1));
+        overworld.overrides.add(ruleBiomeRegex("desert|frozen|snowy|ice|jungle", "adventure", 1));
+
+        // Old "ZoneSpecifier" (Bosses) is just another override now!
+        overworld.overrides.add(ruleStructure("#dungeon_difficulty:bosses", "heroic", 0));
+
+        config.scaling_rules.add(overworld);
+
+        // 2. NETHER TREE
+        var nether = ruleDim("minecraft:the_nether", "adventure", 3);
+        nether.overrides.add(ruleStructure("#dungeon_difficulty:level_4", "dungeon", 4));
+        nether.overrides.add(ruleEntity("minecraft:wither", "dungeon", 3));
+
+        config.scaling_rules.add(nether);
+
+        // 3. END TREE
+        var end = ruleDim("minecraft:the_end", "adventure", 4);
+        end.overrides.add(ruleBiome("minecraft:the_end", "heroic", 5));
+        end.overrides.add(ruleStructure("#dungeon_difficulty:level_6", "dungeon", 6));
+        end.overrides.add(ruleStructure("#dungeon_difficulty:level_5", "dungeon", 5));
+        end.overrides.add(ruleEntity("minecraft:ender_dragon", "dungeon", 4));
+
+        config.scaling_rules.add(end);
     }
 
     private static ConfigServer.ItemModifier createItemModifier(List<ConfigServer.AttributeModifier> attributeModifiers) {
@@ -197,67 +192,38 @@ public class Default {
         return entityModifier;
     }
 
-    private static ConfigServer.Zone biomeRegex(String regex, String difficulty, int level) {
-        var zone = new ConfigServer.Zone();
-        zone.zone_matches.biome = PatternMatching.REGEX_PREFIX + regex;
-        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return zone;
+    private static ConfigServer.ScalingRule ruleDim(String dim, String diffName, int level) {
+        var r = new ConfigServer.ScalingRule();
+        r.match.dimension = dim;
+        if (diffName != null) r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
+        return r;
     }
 
-    private static ConfigServer.Zone biomeSpecific(String biome, String difficulty, int level) {
-        var zone = new ConfigServer.Zone();
-        zone.zone_matches.biome = biome;
-        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return zone;
+    private static ConfigServer.ScalingRule ruleStructure(String struct, String diffName, int level) {
+        var r = new ConfigServer.ScalingRule();
+        r.match.structure = struct;
+        r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
+        return r;
     }
 
-    private static ConfigServer.Zone structureId(String id, String difficulty, int level) {
-        var zone = new ConfigServer.Zone();
-        zone.zone_matches.structure = id;
-        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return zone;
+    private static ConfigServer.ScalingRule ruleBiome(String biome, String diffName, int level) {
+        var r = new ConfigServer.ScalingRule();
+        r.match.biome = biome;
+        r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
+        return r;
     }
 
-    private static ConfigServer.Zone structureTag(String tag, String difficulty, int level) {
-        var zone = new ConfigServer.Zone();
-        zone.zone_matches.structure = "#" + DungeonDifficulty.MODID + ":" + tag;
-        zone.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return zone;
+    private static ConfigServer.ScalingRule ruleBiomeRegex(String regex, String diffName, int level) {
+        var r = new ConfigServer.ScalingRule();
+        r.match.biome = "~" + regex; // Assuming PatternMatching.REGEX_PREFIX is "~"
+        r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
+        return r;
     }
 
-    private static ConfigServer.Zone.TypeOverride zoneOverrideStructure(String tag, String difficulty) {
-        var override = new ConfigServer.Zone.TypeOverride();
-        override.zone_matches.structure = "#" + DungeonDifficulty.MODID + ":" + tag;
-        override.difficulty_name = difficulty;
-        return override;
-    }
-
-    private static ConfigServer.Zone.TypeOverride zoneOverrideBiome(String biome, String difficulty) {
-        var override = new ConfigServer.Zone.TypeOverride();
-        override.zone_matches.biome = biome;
-        override.difficulty_name = difficulty;
-        return override;
-    }
-
-    private static ConfigServer.EntityMatcher entityTypeMatcher(String type, String difficulty, int level) {
-        var entityMatcher = new ConfigServer.EntityMatcher();
-        entityMatcher.entity_type = type;
-        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return entityMatcher;
-    }
-
-    private static ConfigServer.EntityMatcher entityLootTableMatcher(String lootTable, String difficulty, int level) {
-        var entityMatcher = new ConfigServer.EntityMatcher();
-        entityMatcher.loot_table = lootTable;
-        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return entityMatcher;
-    }
-
-    private static ConfigServer.EntityMatcher entitySpecificMatcher(Identifier entityId, String difficulty, int level) {
-        var entityMatcher = new ConfigServer.EntityMatcher();
-        entityMatcher.entity_type = entityId.toString();
-        entityMatcher.loot_table = entityId.getNamespace() + ":" + "entities/" + entityId.getPath();
-        entityMatcher.difficulty = new ConfigServer.DifficultyReference(difficulty, level);
-        return entityMatcher;
+    private static ConfigServer.ScalingRule ruleEntity(String entity, String diffName, int level) {
+        var r = new ConfigServer.ScalingRule();
+        r.match.entity = entity;
+        r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
+        return r;
     }
 }

@@ -2,6 +2,7 @@ package net.dungeon_difficulty.logic;
 
 import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
+import net.dungeon_difficulty.util.Debugger;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.Monster;
@@ -20,7 +21,6 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.gen.structure.Structure;
 import org.jetbrains.annotations.Nullable;
-import org.spongepowered.asm.mixin.transformer.Config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,95 +29,142 @@ import java.util.regex.Pattern;
 
 public class PatternMatching {
 
+    // --- RECURSIVE SEARCH ENGINE
+
+    @Nullable
+    public static DifficultySearchResult getDifficultyResult(
+            LocationData locationData,
+            @Nullable Identifier sourceId,
+            ScalingGoal scalingGoal,
+            ServerWorld world
+    ) {
+        var result = findBestMatchRecursive(ConfigServer.fetch().scaling_rules, locationData, sourceId, world);
+
+        // 2. Print ONLY the Final Verdict
+        if (result != null) {
+            // Get the name of the biome or structure that triggered the match
+            String locationName = (result.matchId() != null) ? result.matchId().toString() : "Unknown/Global";
+            String difficultyName = result.difficulty().type().name;
+            int level = result.difficulty().level();
+
+            Debugger.log("Match: " + locationName + " -> " + difficultyName + " (Lvl " + level + ")");
+        }
+
+        return result;
+    }
+
+    private static DifficultySearchResult findBestMatchRecursive(List<ConfigServer.ScalingRule> rules, LocationData loc, @Nullable Identifier sourceId, ServerWorld world) {
+        for (var rule : rules) {
+
+            // get the specific Match Details (or null if it failed)
+            var matchInfo = getRuleMatch(rule, loc, sourceId, world);
+
+            // if no match, skip.
+            if (matchInfo == null) continue;
+
+            // RECURSION: check overrides first
+            var bestChild = findBestMatchRecursive(rule.overrides, loc, sourceId, world);
+            if (bestChild != null) {
+                return bestChild;
+            }
+
+            // WINNER: Create result using the selected/matching Match Info
+            var diff = findDifficulty(rule.difficulty);
+            if (diff != null && diff.isValid()) {
+                // FIX: Pass 'matchInfo' instead of 'null' here!
+                return new DifficultySearchResult(diff, loc, matchInfo);
+            }
+        }
+        return null;
+    }
+
+    // checks all 4 conditions: Dimension, Biome, Structure, Entity(+Loot)
+    @Nullable
+    private static LocationData.Match getRuleMatch(ConfigServer.ScalingRule rule, LocationData loc, @Nullable Identifier sourceId, ServerWorld world) {
+        var m = rule.match;
+        if (m == null) return new LocationData.Match(true, LocationData.Scope.DIMENSION, null, null);
+
+        // Dimension Check
+        if (!universalMatch(loc.dimensionId, m.dimension)) return null;
+
+        // Biome Check
+        if (m.biome != null && !m.biome.isEmpty()) {
+            if (loc.biome == null || !entryMatches(loc.biome.biomeEntry, RegistryKeys.BIOME, m.biome)) {
+                return null;
+            }
+        }
+
+        // Entity / Loot Check
+        if (m.entity != null && !m.entity.isEmpty()) {
+            if (sourceId == null || !idMatches(sourceId, m.entity)) return null;
+        }
+
+        // Structure Check
+        RegistryEntry<Structure> matchedStruct = null;
+        if (m.structure != null && !m.structure.isEmpty()) {
+            matchedStruct = loc.matchesStructure(world, m.structure);
+            if (matchedStruct == null) return null;
+        }
+
+        // Priority: Structure > Biome > Dimension
+        if (matchedStruct != null) {
+            return new LocationData.Match(true, LocationData.Scope.STRUCTURE, null, matchedStruct);
+        }
+        if (m.biome != null && !m.biome.isEmpty()) {
+            return new LocationData.Match(true, LocationData.Scope.BIOME, loc.biome().biomeEntry(), null);
+        }
+
+        return new LocationData.Match(true, LocationData.Scope.DIMENSION, null, null);
+    }
+
+
+    // --- DATA RECORDS
+
     public record BiomeData(RegistryEntry<Biome> biomeEntry) { }
 
     public record LocationData(Identifier dimensionId, BlockPos position, BiomeData biome) {
         public static LocationData create(ServerWorld world, BlockPos position) {
             var dimensionId = world.getRegistryKey().getValue();
             BiomeData biome = null;
-            if (position != null) {
+            if (position != null && world.isChunkLoaded(ChunkPos.toLong(position))) {
                 biome = new BiomeData(world.getBiome(position));
             }
             return new LocationData(dimensionId, position, biome);
         }
 
-        public boolean matches(ConfigServer.Dimension.Filters filters) {
-            if (filters == null) {
-                return true;
-            }
-            var result = PatternMatching.universalMatch(dimensionId, filters.dimension);
-            // System.out.println("PatternMatching - dimension:" + dimensionId + " matches: " + filters.dimension_regex + " - " + result);
-            return result;
-        }
 
         public enum Scope { DIMENSION, BIOME, STRUCTURE }
-        public record Match(boolean matches, Scope scope,
-                            @Nullable RegistryEntry<Biome> matchingBiome,
-                            @Nullable RegistryEntry<Structure> matchingStructure) {
-            public static Match trueMatch() {
-                return new Match(true, Scope.DIMENSION, null, null);
-            }
-            public static Match falseMatch() {
-                return new Match(false, Scope.DIMENSION, null, null);
-            }
+        public record Match(
+                boolean matches, Scope scope,
+                @Nullable RegistryEntry<Biome> matchingBiome,
+                @Nullable RegistryEntry<Structure> matchingStructure
+        ) {
             @Nullable public Identifier id() {
-                if (matchingBiome != null) {
-                    return matchingBiome.getKey().get().getValue();
-                }
-                if (matchingStructure != null) {
-                    return matchingStructure.getKey().get().getValue();
-                }
+                if (matchingBiome != null) return matchingBiome.getKey().get().getValue();
+                if (matchingStructure != null) return matchingStructure.getKey().get().getValue();
                 return null;
             }
         }
 
-        public Match matches(ConfigServer.Zone.Filters filters, @Nullable ServerWorld world) {
-            if (filters == null || biome == null) {
-                return Match.trueMatch();
-            }
-            var result = false;
-            if (world == null) {
-                return Match.falseMatch();
-            }
+        // optimized structure finder
+        public @Nullable RegistryEntry<Structure> matchesStructure(ServerWorld world, String pattern) {
+            if (position == null) return null;
+
             var registries = world.getServer().getRegistryManager();
+            var registry = registries.get(RegistryKeys.STRUCTURE);
 
-            // Biome pattern matching
+            // get structures at pos
+            var structureStarts = world.getStructureAccessor().getStructureStarts(new ChunkPos(position), s -> true);
 
-            Scope matchScope = Scope.DIMENSION;
-            RegistryEntry<Biome> matchingBiome = null;
+            for (var structureStart : structureStarts) {
+                if (!isInsideStructure(world, position, structureStart)) continue;
 
-
-            if (filters.biome == null || filters.biome.isEmpty()) {
-                result = true;
-            } else if (universalMatch(biome.biomeEntry, RegistryKeys.BIOME, filters.biome)) {
-                result = true;
-                matchingBiome = biome.biomeEntry;
-                matchScope = Scope.BIOME;
-            }
-
-            // Structure pattern matching
-
-            RegistryEntry<Structure> matchingStructure = null;
-
-            if (result && filters.structure != null && !filters.structure.isEmpty()) {
-                result = false;
-                var registry = registries.get(RegistryKeys.STRUCTURE);
-                var structureStartsUnfiltered = world.getStructureAccessor().getStructureStarts(new ChunkPos(position), s -> true);
-                for (var structureStart : structureStartsUnfiltered) {
-                    var entry = registry.getEntry(registry.getRawId(structureStart.getStructure())).orElse(null);
-                    if (entry != null
-                            && PatternMatching.universalMatch(entry, RegistryKeys.STRUCTURE, filters.structure)
-                            && isInsideStructure(world, position, structureStart)) {
-                        matchingStructure = entry;
-                        matchScope = Scope.STRUCTURE;
-                        result = true;
-                        break;
-                    }
+                var entry = registry.getEntry(registry.getRawId(structureStart.getStructure())).orElse(null);
+                if (entry != null && PatternMatching.universalMatch(entry, RegistryKeys.STRUCTURE, pattern)) {
+                    return entry; // found a match
                 }
             }
-
-            // System.out.println("PatternMatching - biome:" + biome + " matches: " + filters.biome_regex + " - " + result);
-            return new Match(result, matchScope, matchingBiome, matchingStructure);
+            return null;
         }
     }
 
@@ -128,20 +175,13 @@ public class PatternMatching {
         return false;
     }
 
-    public record ItemData(
-            ItemKind kind,
-            Identifier lootTableId,
-            RegistryEntry<Item> itemEntry,
-            String rarity) {
-
+    // --- ITEM & ENTITY
+    public record ItemData(ItemKind kind, Identifier lootTableId, RegistryEntry<Item> itemEntry, String rarity) {
         public boolean matches(ConfigServer.ItemModifier.Filters filters) {
-            if (filters == null) {
-                return true;
-            }
+            if (filters == null) return true;
             var result = PatternMatching.universalMatch(itemEntry, RegistryKeys.ITEM, filters.id)
                     && PatternMatching.regexMatches(lootTableId.toString(), filters.loot_table_regex)
                     && PatternMatching.regexMatches(rarity, filters.rarity_regex);
-            // System.out.println("PatternMatching - item:" + itemId + " matches all" + " - " + result);
             return result;
         }
     }
@@ -159,7 +199,7 @@ public class PatternMatching {
         }
         return getItemScaleResult(itemData, scaling, level);
     }
-    
+
     public static ItemScaleResult getItemScaleResult(ItemData itemData, @Nullable ConfigServer.Rewards scaling, int level) {
         var attributeModifiers = new ArrayList<ConfigServer.AttributeModifier>();
         if (scaling != null && level > 0) {
@@ -190,30 +230,16 @@ public class PatternMatching {
             return new EntityData(type, isHostile);
         }
         private static final Identifier UNKNOWN = CIdentifier.of("unknown");
-        public Identifier entityId() {
-            return type != null ? type.getKey().get().getValue() : UNKNOWN;
-        }
-        public boolean matches(ConfigServer.EntityModifier.Filters filters) {
-            if (filters == null) {
-                return true;
-            }
-            var matchesAttitude = true;
-            if (filters.attitude != null) {
-                switch (filters.attitude) {
-                    case FRIENDLY -> {
-                        matchesAttitude = !isHostile;
-                    }
-                    case HOSTILE -> {
-                        matchesAttitude = isHostile;
-                    }
-                    case ANY -> {
-                        matchesAttitude = true;
-                    }
-                }
-            }
-            var result = matchesAttitude && (PatternMatching.universalMatch(type, RegistryKeys.ENTITY_TYPE, filters.type));
+        public Identifier entityId() { return type != null ? type.getKey().get().getValue() : UNKNOWN; }
 
-            // System.out.println("PatternMatching - dimension:" + entityId + " matches: " + filters.entity_id_regex + " - " + result);
+        public boolean matches(ConfigServer.EntityModifier.Filters filters) {
+            if (filters == null) return true;
+            var matchesAttitude = switch (filters.attitude) {
+                case FRIENDLY -> !isHostile;
+                case HOSTILE -> isHostile;
+                case ANY -> true;
+            };
+            var result = matchesAttitude && PatternMatching.universalMatch(type, RegistryKeys.ENTITY_TYPE, filters.type);
             return result;
         }
     }
@@ -224,11 +250,9 @@ public class PatternMatching {
 
     public static EntityScaleResult getAttributeModifiersForEntity(LocationData locationData, EntityData entityData, ServerWorld world) {
         var attributeModifiers = new ArrayList<ConfigServer.AttributeModifier>();
-//        if (entityData.entityId.toString().contains("warden")) {
-//            System.out.println("Warden entity detected: " + entityData.entityId);
-//        }
-        // var difficulty = getDifficulty(locationData, world);
+        // Pass entityId as sourceId
         var result = getDifficultyResult(locationData, entityData.entityId(), ScalingGoal.ENTITY, world);
+
         var level = 0;
         float experienceMultiplier = 0;
         var name = EntityScaleResult.EMPTY.name();
@@ -243,30 +267,23 @@ public class PatternMatching {
                 }
             }
             name = difficulty.type().name;
-            // System.out.println("Difficulty for entity: " + entityData.entityId() + " | difficulty: " + difficulty.type().name + " level " + level);
         }
-
-        // Using "location" as name
-        // So we make sure location based scaling only happens once
-        return new EntityScaleResult("location", attributeModifiers, level, experienceMultiplier);
+        return new EntityScaleResult(name, attributeModifiers, level, experienceMultiplier);
     }
 
     public record SpawnerScaleResult(List<ConfigServer.SpawnerModifier> modifiers, int level) { }
 
     public static SpawnerScaleResult getModifiersForSpawner(LocationData locationData, EntityData entityData, ServerWorld world) {
         var spawnerModifiers = new ArrayList<ConfigServer.SpawnerModifier>();
-        var difficulty = getDifficulty(locationData, world);
+        var difficulty = getDifficulty(locationData, entityData.entityId(), world);
         int level = 0;
         if (difficulty != null) {
             level = difficulty.entityLevel();
             if (level != 0) {
                 for (var modifier: getModifiersForEntity(difficulty.type().entities, entityData)) {
-                    if (modifier.spawners != null) {
-                        spawnerModifiers.add(modifier.spawners);
-                    }
+                    if (modifier.spawners != null) spawnerModifiers.add(modifier.spawners);
                 }
             }
-            // System.out.println("Difficulty for entity: " + entityData.entityId() + " | difficulty: " + difficulty.type().name + " level " + level);
         }
         return new SpawnerScaleResult(spawnerModifiers, level);
     }
@@ -281,131 +298,24 @@ public class PatternMatching {
         return entityModifiers;
     }
 
-    public record DifficultySearchResult(Difficulty difficulty, LocationData locationData, LocationData.Match match) {
-        @Nullable public Identifier matchId() {
-            return match != null ? match.id() : null;
-        }
-        public DifficultySearchResult withType(String difficultyType) {
-            var newType = DifficultyTypes.resolved.stream()
-                    .filter(t -> t.name.equals(difficultyType))
-                    .findFirst()
-                    .orElse(null);
-            if (newType != null) {
-                return new DifficultySearchResult(difficulty.withType(newType), locationData, match);
-            }
-            return this;
-        }
-    }
+    // --- RESULT HELPERS
 
-    @Nullable
-    public static Difficulty getDifficulty(LocationData locationData, ServerWorld world) {
-        return getDifficulty(locationData, null, world);
+    public record DifficultySearchResult(Difficulty difficulty, LocationData locationData, LocationData.Match match) {
+        @Nullable public Identifier matchId() { return match != null ? match.id() : null; }
     }
 
     @Nullable
     public static Difficulty getDifficulty(LocationData locationData, @Nullable Identifier sourceId, ServerWorld world) {
         var result = getDifficultyResult(locationData, sourceId, ScalingGoal.ENTITY, world);
-        if (result != null) {
-            return result.difficulty();
-        }
-        return null;
-    }
-
-    @Nullable
-    public static DifficultySearchResult getDifficultyResult(LocationData locationData, @Nullable Identifier sourceId, ScalingGoal scalingGoal, ServerWorld world) {
-        for (var dimension : ConfigServer.fetch().dimensions) {
-            if (locationData.matches(dimension.world_matches)) {
-                DifficultySearchResult zoneResult = null;
-                if (dimension.zones != null) {
-                    for(var zone: dimension.zones) {
-                        var match = locationData.matches(zone.zone_matches, world);
-                        if (match.matches()) {
-                            var zoneDifficulty = findDifficulty(zone.difficulty);
-                            if (zoneDifficulty != null && zoneDifficulty.isValid()) {
-                                zoneResult = new DifficultySearchResult(zoneDifficulty, locationData, match);
-                                break;
-                            }
-                        }
-                    }
-                    if (zoneResult != null) {
-                        for (var typeOverride : dimension.zone_specifiers) {
-                            var match = locationData.matches(typeOverride.zone_matches, world);
-                            if (match.matches()) {
-                                zoneResult = zoneResult.withType(typeOverride.difficulty_name);
-                                break;
-                            }
-                        }
-                    }
-                }
-                var entityDifficulty = matchEntityDifficulty(locationData, sourceId, scalingGoal, dimension.entities);
-                var result = chooseHigherDifficulty(zoneResult, entityDifficulty);
-                if (result != null) {
-                    return result;
-                }
-
-                var dimensionDifficulty = findDifficulty(dimension.difficulty);
-                if (dimensionDifficulty != null && dimensionDifficulty.isValid()) {
-                    return new DifficultySearchResult(dimensionDifficulty, locationData, null);
-                }
-            }
-        }
-        return null;
-    }
-
-    private static DifficultySearchResult chooseHigherDifficulty(@Nullable DifficultySearchResult a, @Nullable DifficultySearchResult b) {
-        if (a == null && b == null) {
-            return null;
-        }
-        int aLevel = a != null ? a.difficulty().level() : -100;
-        int bLevel = b != null ? b.difficulty().level() : -100;
-        if (aLevel >= bLevel) {
-            return a;
-        } else {
-            return b;
-        }
-    }
-
-    private static @Nullable DifficultySearchResult matchEntityDifficulty(LocationData locationData, @Nullable Identifier sourceId, ScalingGoal scalingGoal, List<ConfigServer.EntityMatcher> matchers) {
-        if (sourceId != null) {
-            for (var entityMatcher : matchers) {
-                switch (scalingGoal) {
-                    case ENTITY -> {
-                        if (entityMatcher.entity_type != null) {
-                            var entityTypeEntry = Registries.ENTITY_TYPE.getEntry(RegistryKey.of(RegistryKeys.ENTITY_TYPE, sourceId));
-                            if (entityTypeEntry.isEmpty()) {
-                                continue;
-                            }
-                            if (PatternMatching.universalMatch(entityTypeEntry.get(), RegistryKeys.ENTITY_TYPE, entityMatcher.entity_type)) {
-                                var difficulty = findDifficulty(entityMatcher.difficulty);
-                                return new DifficultySearchResult(difficulty, locationData, null);
-                            }
-                        }
-                    }
-                    case LOOT -> {
-                        if (entityMatcher.loot_table != null) {
-                            if (PatternMatching.regexMatches(sourceId.toString(), entityMatcher.loot_table)) {
-                                var difficulty = findDifficulty(entityMatcher.difficulty);
-                                return new DifficultySearchResult(difficulty, locationData, null);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return null;
+        return (result != null) ? result.difficulty() : null;
     }
 
     @Nullable
     private static Difficulty findDifficulty(ConfigServer.DifficultyReference reference) {
-        if (reference == null) {
-            return null;
-        }
-        var name = reference.name;
-        if (name == null || name.isEmpty()) {
-            return null;
-        }
+        if (reference == null || reference.name == null || reference.name.isEmpty()) return null;
+
         for(var entry: DifficultyTypes.resolved) {
-            if (name.equals(entry.name)) {
+            if (reference.name.equals(entry.name)) {
                 var rewardLevel = reference.reward_level != null ? reference.reward_level : reference.level;
                 var entityLevel = reference.entity_level != null ? reference.entity_level : reference.level;
                 return new Difficulty(entry, reference.level, entityLevel, rewardLevel);
@@ -414,34 +324,25 @@ public class PatternMatching {
         return null;
     }
 
+    // --- UTILS (Regex & Tags)
+
     public static final String ANY = "*";
     public static final String TAG_PREFIX = "#";
     public static final String REGEX_PREFIX = "~";
     public static final String NEGATE_PREFIX = "!";
 
     public static <T> boolean universalMatch(@Nullable RegistryEntry<T> entry, RegistryKey<Registry<T>> registryKey, @Nullable String pattern) {
-        if (pattern == null || pattern.isEmpty() || pattern.equals(ANY)) {
-            return true;
-        }
-        if (entry == null) {
-            return false;
-        }
-        if (pattern.startsWith(NEGATE_PREFIX)) {
-            return !entryMatches(entry, registryKey, pattern.substring(1));
-        } else {
-            return entryMatches(entry, registryKey, pattern);
-        }
+        if (pattern == null || pattern.isEmpty() || pattern.equals(ANY)) return true;
+        if (entry == null) return false;
+
+        if (pattern.startsWith(NEGATE_PREFIX)) return !entryMatches(entry, registryKey, pattern.substring(1));
+        return entryMatches(entry, registryKey, pattern);
     }
 
     public static <T> boolean universalMatch(Identifier id, @Nullable String pattern) {
-        if (pattern == null || pattern.isEmpty() || pattern.equals(ANY)) {
-            return true;
-        }
-        if (pattern.startsWith(NEGATE_PREFIX)) {
-            return !idMatches(id, pattern.substring(1));
-        } else {
-            return idMatches(id, pattern);
-        }
+        if (pattern == null || pattern.isEmpty() || pattern.equals(ANY)) return true;
+        if (pattern.startsWith(NEGATE_PREFIX)) return !idMatches(id, pattern.substring(1));
+        return idMatches(id, pattern);
     }
 
     public static <T> boolean entryMatches(RegistryEntry<T> entry, RegistryKey<Registry<T>> registryKey, String pattern) {
@@ -456,20 +357,18 @@ public class PatternMatching {
         var idString = id.toString();
         if (pattern.startsWith(REGEX_PREFIX)) {
             return regexMatches(idString, pattern.substring(1));
-        } else {
-            return idString.equals(pattern);
         }
+        return idString.equals(pattern);
     }
 
     public static boolean regexMatches(String subject, String regex) {
-        if (subject == null) {
+        if (subject == null) return false;
+        if (regex == null || regex.isEmpty()) return true;
+        try {
+            Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+            return pattern.matcher(subject).find();
+        } catch (Exception e) {
             return false;
         }
-        if (regex == null || regex.isEmpty()) {
-            return true;
-        }
-        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(subject);
-        return matcher.find();
     }
 }

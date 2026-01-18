@@ -31,13 +31,15 @@ public record Difficulty(ConfigServer.DifficultyType type,
         return "difficulty.type." + suffix.toLowerCase(Locale.ENGLISH);
     }
 
-    public record Announcement(Difficulty difficulty, int age, String dimensionId, @Nullable Identifier matchId) {
+    public record Announcement(Difficulty difficulty, int timestamp, String dimensionId, @Nullable Identifier matchId) {
         public static Announcement EMPTY = new Announcement(Difficulty.EMPTY, 0, "", null);
 
+        public String locationName() {
+            return (matchId != null) ? matchId.toString() : "global";
+        }
+
         public boolean equals(Announcement other) {
-            if (other == null) {
-                return false;
-            }
+            if (other == null) return false;
             return difficulty.typeEquals(other.difficulty)
                     && Objects.equals(dimensionId, other.dimensionId)
                     && Objects.equals(matchId, other.matchId);

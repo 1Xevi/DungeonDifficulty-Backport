@@ -10,12 +10,24 @@ import java.util.stream.Stream;
 public class DifficultyTypes {
     public static List<DifficultyType> resolved = new ArrayList<>();
 
-    public static void resolve() {
+    public static void resolve(ConfigServer config) {
+        System.out.println("Resolving difficulty list...");
+
+        if (resolved == null || resolved.getClass().getName().contains("Immutable")) {
+            resolved = new ArrayList<>();
+        }
         resolved.clear();
 
-        var config = ConfigServer.fetch();
+
         var types = config.difficulty_types;
-        for (var type: types) resolved.add(resolve(type, types));
+
+        for (var type: types) {
+            resolved.add(resolve(type, types));
+        }
+    }
+
+    public static void resolve() {
+        resolve(ConfigServer.fetch());
     }
 
     private static DifficultyType resolve(DifficultyType type, List<ConfigServer.DifficultyType> types) {

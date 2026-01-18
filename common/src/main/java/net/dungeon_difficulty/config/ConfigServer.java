@@ -4,15 +4,34 @@ import me.shedaniel.autoconfig.ConfigData;
 import me.shedaniel.autoconfig.AutoConfig;
 import me.shedaniel.autoconfig.annotation.Config;
 import net.dungeon_difficulty.DungeonDifficulty;
+import net.dungeon_difficulty.logic.DifficultyTypes;
+import net.dungeon_difficulty.util.Debugger;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Random;
 
 @Config(name = DungeonDifficulty.MODID + "-server")
 public class ConfigServer implements ConfigData {
     public ConfigServer() {
+        Debugger.log("DEBUG: Populating defaults...");
+        Default.populate(this);
+    }
 
+    @Override
+    public void validatePostLoad() {
+        if (difficulty_types == null || difficulty_types.isEmpty()) {
+            Debugger.log("Config missing/empty. Repopulating defaults...");
+            Default.populate(this);
+        }
+
+        try {
+            DifficultyTypes.resolve(this);
+        } catch (Exception e) {
+            Debugger.log("Failed to auto-resolve difficulty types: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public static ConfigServer fetch() { return AutoConfig.getConfigHolder(ConfigServer.class).getConfig(); }
@@ -20,7 +39,7 @@ public class ConfigServer implements ConfigData {
     public Meta meta = new Meta();
     public static class Meta { public Meta() { }
         public boolean sanitize_config = true;
-        public Double rounding_unit = 0.5;
+        public double rounding_unit = 0.5;
         public boolean merge_item_modifiers = true;
         public boolean global_loot_scaling = true;
         public boolean enable_overriding_enchantment_rarity = true;
@@ -31,7 +50,8 @@ public class ConfigServer implements ConfigData {
     public static class Announcement { public Announcement() { }
         public boolean enabled = true;
         public int check_interval_seconds = 5;
-        public int history_size = 2;
+        public int reannounce_cooldown_seconds = 123;
+        public int history_size = 10;
     }
 
     public PerPlayerDifficulty per_player_difficulty;
@@ -43,7 +63,7 @@ public class ConfigServer implements ConfigData {
         public List<EntityModifier> entities = List.of();
     }
 
-    public List<DifficultyType> difficulty_types = List.of();
+    public List<DifficultyType> difficulty_types = new ArrayList<>();
     public static class DifficultyType { public DifficultyType() { }
         public String name;
         public String parent;
@@ -79,42 +99,22 @@ public class ConfigServer implements ConfigData {
         }
     }
 
-    public Dimension[] dimensions;
+    public List<ScalingRule> scaling_rules = new ArrayList<>();
 
-    public static class Dimension { public Dimension() { }
-        public static class Filters {
-            // Universal pattern matching against dimension ID
-            public String dimension;
+    public static class ScalingRule {
+        public ScalingRule() {
         }
-        public Filters world_matches = new Filters();
-        public DifficultyReference difficulty;
 
-        public List<Zone> zones = List.of();
-        public List<Zone.TypeOverride> zone_specifiers = List.of();
-        public List<EntityMatcher> entities = List.of();
-    }
-
-    public static class Zone { public Zone() { }
-        public static class Filters { public Filters() { }
-            // Universal pattern matching against biome ID
-            @Nullable public String biome = null;
-            // Universal pattern matching against structure ID
-            @Nullable public String structure = null;
+        public static class Context {
+            public String dimension = "";
+            public String biome = "";
+            public String structure = "";
+            public String entity = "";
         }
-        public Filters zone_matches = new Filters();
 
-        public DifficultyReference difficulty;
-
-        public static class TypeOverride { public TypeOverride() { }
-            public Filters zone_matches = new Filters();
-            public String difficulty_name;
-        }
-    }
-
-    public static class EntityMatcher { public EntityMatcher() { }
-        public String entity_type = null;
-        public String loot_table = null;
-        public DifficultyReference difficulty;
+        public Context match = new Context();
+        public DifficultyReference difficulty = new DifficultyReference();
+        public List<ScalingRule> overrides = new ArrayList<>();
     }
 
     public enum Operation { ADDITION, MULTIPLY_BASE }

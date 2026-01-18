@@ -4,6 +4,7 @@ import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
+import net.dungeon_difficulty.util.Debugger;
 import net.fabricmc.fabric.api.loot.v2.LootTableEvents;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.attribute.EntityAttribute;
@@ -22,14 +23,7 @@ import org.slf4j.Logger;
 import java.util.*;
 
 public class ItemScaling {
-    static final Logger LOGGER = LogUtils.getLogger();
     public static final String REWARD_SCALE_FACTOR = "dd.rsf";
-    private static final boolean debugLogging = false;
-    private static void debug(String message) {
-        if (debugLogging) {
-            System.out.println(message);
-        }
-    }
 
     public static void initialize() {
         LootTableEvents.MODIFY.register((resourceManager, lootManager, id, tableBuilder, source) -> {
@@ -56,9 +50,9 @@ public class ItemScaling {
 
         if (itemStack.getItem() instanceof ToolItem || itemStack.getItem() instanceof RangedWeaponItem) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.WEAPONS, lootTableId, itemEntry, rarity);
-            debug("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
+            Debugger.log("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
             var result = PatternMatching.getModifiersForItem(locationData, itemData, world, scaling);
-            debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
+            Debugger.log("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
 
             var hasHandModifiers = false;
             var nbt = itemStack.getNbt();
@@ -83,16 +77,16 @@ public class ItemScaling {
 
         if (itemStack.getItem() instanceof ArmorItem armor) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
-            debug("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
+            Debugger.log("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
             var result = PatternMatching.getModifiersForItem(locationData, itemData, world, scaling);
-            debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
+            Debugger.log("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
             applyModifiers(List.of(armor.getSlotType()), itemId, itemStack, result.modifiers(), result.level());
         }
         if (itemStack.getItem() instanceof ShieldItem shield) {
             var itemData = new PatternMatching.ItemData(PatternMatching.ItemKind.ARMOR, lootTableId, itemEntry, rarity);
-            debug("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
+            Debugger.log("Item scaling start." + " dimension: " + dimensionId + " position: " + position + ", loot table: " + lootTableId + ", item: " + itemId + ", rarity: " + rarity);
             var result = PatternMatching.getModifiersForItem(locationData, itemData, world, scaling);
-            debug("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
+            Debugger.log("Pattern matching found " + result.modifiers().size() + " attribute modifiers");
             applyModifiers(List.of(EquipmentSlot.OFFHAND, EquipmentSlot.MAINHAND), itemId, itemStack, result.modifiers(), result.level());
         }
     }
@@ -329,7 +323,7 @@ public class ItemScaling {
 
     private static Double getRoundingUnit() {
         var config = ConfigServer.fetch();
-        if (config.meta != null && config.meta.rounding_unit != null) {
+        if (config.meta != null) {
             return config.meta.rounding_unit;
         }
         return null;
