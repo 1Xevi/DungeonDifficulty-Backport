@@ -1,5 +1,5 @@
 package net.dungeon_difficulty.mixin;
-;
+
 import net.dungeon_difficulty.Platform;
 import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.logic.DifficultyHandler;
