@@ -121,11 +121,11 @@ public class ConfigServer implements ConfigData {
 
     public enum RoundingMode {
         NONE(0.0, "None (Precise)"),
-        TENTHS(0.1, "Very High (0.1)"), // Good for Speed
-        FIFTHS(0.2, "High (0.2)"),           // Good for Speed/Knockback
+        TENTHS(0.1, "Very High (0.1)"),
+        FIFTHS(0.2, "High (0.2)"),
         QUARTERS(0.25, "Medium (0.25)"),
-        HALVES(0.5, "Low (0.5)"),            // Good for Health (Hearts)
-        INTEGERS(1.0, "Whole Numbers (1.0)"); // Good for Damage/Armor
+        HALVES(0.5, "Low (0.5)"),
+        INTEGERS(1.0, "Whole Numbers (1.0)");
 
         public final double value;
         private final String label;
@@ -137,7 +137,7 @@ public class ConfigServer implements ConfigData {
 
         @Override
         public String toString() {
-            return label; // This is what YACL shows in the dropdown!
+            return label;
         }
     }
 
@@ -147,7 +147,6 @@ public class ConfigServer implements ConfigData {
                 FRIENDLY, HOSTILE, ANY
             }
             public Attitude attitude = Attitude.ANY;
-            // Universal pattern matching against entity type ID
             public String type = "";
         }
         public Filters entity_matches = new Filters();
@@ -158,20 +157,18 @@ public class ConfigServer implements ConfigData {
         public String getSummary() {
             String type = (entity_matches.type == null || entity_matches.type.isEmpty())
                     ? "ALL MOBS"
-                    : entity_matches.type.replace("minecraft:", ""); // Shorten name
+                    : entity_matches.type.replace("minecraft:", "");
 
             String attitude = (entity_matches.attitude == Filters.Attitude.ANY)
                     ? ""
                     : " (" + entity_matches.attitude.name() + ")";
 
-            // Returns: "zombie (HOSTILE)" or "ALL MOBS"
             return type + attitude;
         }
     }
 
     public static class ItemModifier { public ItemModifier() { }
         public static class Filters {
-            // Universal pattern matching against item ID
             public String id = "";
             public String loot_table_regex = "";
             public String rarity_regex = "";
@@ -213,9 +210,11 @@ public class ConfigServer implements ConfigData {
 
         public String getSummary() {
             String attrName = attribute.replace("minecraft:generic.", "").replace("minecraft:player.", "");
-            String suffix = (operation == Operation.MULTIPLY_BASE) ? "%" : "";
+            boolean doesMultiply = (operation == Operation.MULTIPLY_BASE);
+            String suffix = doesMultiply ? "%" : "";
+            var attrValue = doesMultiply ? value * 100 : value;
 
-            return String.format("+%.1f%s %s", value, suffix, attrName);
+            return String.format("+%.1f%s %s", attrValue, suffix, attrName);
         }
 
         private static final Random rng = new Random();

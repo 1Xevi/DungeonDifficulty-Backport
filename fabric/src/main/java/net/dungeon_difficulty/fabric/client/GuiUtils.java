@@ -6,21 +6,50 @@ import net.dungeon_difficulty.config.ConfigServer; // Only needed for auto-save 
 import me.shedaniel.autoconfig.AutoConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.registry.Registry;
+import net.minecraft.registry.*;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class GuiUtils {
+    private static final Map<Object, List<String>> REGISTRY_CACHE = new ConcurrentHashMap<>();
+    public static void clearCache() {
+        REGISTRY_CACHE.clear();
+    }
+
+
     @FunctionalInterface
     public interface EditorInjector<T> {
-        void inject(OptionGroup.Builder builder, T item, Screen parent);
+        void inject(BuilderContext<OptionGroup.Builder> ctx, T item);
+    }
+
+    public record BuilderContext<B>(
+            B builder,
+            Screen parent,
+            Runnable refreshSelf) {
+
+        public void refresh() {
+            if (refreshSelf != null) refreshSelf.run();
+        }
+    }
+
+    public static <T> OptionEventListener<T> onUpdate(Consumer<T> setter, Runnable refresher) {
+        return (option, event) -> {
+            if (event == OptionEventListener.Event.STATE_CHANGE) {
+                setter.accept(option.pendingValue());
+                refresher.run();
+            }
+        };
     }
 
     // generic screen builder
@@ -57,24 +86,23 @@ public class GuiUtils {
 
     // generic list builder
     public static <T> void addGenericList(
-            ConfigCategory.Builder category,
-            String listTitle,
-            String itemLabel,
+            BuilderContext<ConfigCategory.Builder> ctx,
+            String listTitle, String itemLabel,
             List<T> list,
-            Screen parent,
             Supplier<T> constructor,
             Function<T, String> nameProvider,
             Function<T, String> descriptionProvider,
             EditorInjector<T> injector
     ) {
         var headerGroup = OptionGroup.createBuilder().name(Text.literal(listTitle)).collapsed(false);
+        var category = ctx.builder();
+        var parent = ctx.parent();
 
         headerGroup.option(ButtonOption.createBuilder()
                 .name(Text.literal("§a[+] Add New " + itemLabel))
                 .action((s, b) -> {
                     list.add(constructor.get());
                     AutoConfig.getConfigHolder(ConfigServer.class).save();
-                    // Rebuilds the screen to show the new item
                     MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent));
                 })
                 .build());
@@ -90,7 +118,9 @@ public class GuiUtils {
                     .description(OptionDescription.of(Text.literal(descriptionProvider.apply(item))))
                     .collapsed(true);
 
-            injector.inject(itemGroup, item, parent);
+            var itemCtx = new BuilderContext<>(itemGroup, parent, ctx.refreshSelf());
+
+            injector.inject(itemCtx, item);
 
             itemGroup.option(ButtonOption.createBuilder()
                     .name(Text.literal("§c[X] Delete this entry"))
@@ -107,15 +137,14 @@ public class GuiUtils {
 
     // sublist button
     public static <T> void addSubListButton(
-            OptionGroup.Builder builder,
+            BuilderContext<OptionGroup.Builder> ctx,
             String title, String label,
             List<T> list,
-            Screen parent,
             Supplier<T> ctor,
             Function<T, String> namer,
             Function<T, String> descriptionProvider,
-            EditorInjector<T> injector) {
-
+            EditorInjector<T> injector)
+    {
         StringBuilder previewText = new StringBuilder("§7Contents:");
         if (list.isEmpty()) {
             previewText.append("\n§8(Empty)");
@@ -129,6 +158,9 @@ public class GuiUtils {
             }
         }
 
+        var builder = ctx.builder();
+        var parent = ctx.parent();
+
         builder.option(ButtonOption.createBuilder()
                 .name(Text.literal("§e[>] Edit " + title + " §7(" + list.size() + ")"))
                 .description(OptionDescription.of(Text.literal(previewText.toString())))
@@ -139,8 +171,11 @@ public class GuiUtils {
                                 list,
                                 (saved) -> AutoConfig.getConfigHolder(ConfigServer.class).save(),
                                 null,
-                                (cat) -> addGenericList(cat, title, label, list, s, ctor, namer, descriptionProvider, injector),
-                                // This callback ensures the parent refreshes when we exit the sub-screen
+                                (catBuilder) -> {
+                                    var subCtx = new BuilderContext<>(catBuilder, s, () -> MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent)));
+
+                                    addGenericList(subCtx, title, label, list, ctor, namer, descriptionProvider, injector);
+                                },
                                 () -> MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent))
                         )
                 ))
@@ -158,9 +193,57 @@ public class GuiUtils {
 
     public static List<String> getRegistryIds(@Nullable Registry<?> registry) {
         if (registry == null) return List.of("");
+
+        if (REGISTRY_CACHE.containsKey(registry)) {
+            return REGISTRY_CACHE.get(registry);
+        }
+
         List<String> ids = new ArrayList<>(registry.getIds().stream()
                 .map(Identifier::toString).sorted().toList());
         ids.add(0, "");
+
+        REGISTRY_CACHE.put(registry, ids);
         return ids;
+    }
+
+    public static List<String> getRegistryIds(RegistryKey<? extends Registry<?>> key) {
+        if (REGISTRY_CACHE.containsKey(key)) {
+            return REGISTRY_CACHE.get(key);
+        }
+
+        List<String> result;
+        var client = MinecraftClient.getInstance();
+
+        if (client.world != null) {
+            result = getRegistryIds(client.world.getRegistryManager().get(key));
+        } else if (key.equals(RegistryKeys.ENTITY_TYPE)) {
+            result = getRegistryIds(Registries.ENTITY_TYPE);
+        } else if (key.equals(RegistryKeys.ITEM)) {
+            result = getRegistryIds(Registries.ITEM);
+        } else if (key.equals(RegistryKeys.BLOCK)) {
+            result = getRegistryIds(Registries.BLOCK);
+        } else if (key.equals(RegistryKeys.DIMENSION)) {
+            List<String> defaults = new ArrayList<>();
+            defaults.add("");
+            defaults.add("minecraft:overworld");
+            defaults.add("minecraft:the_nether");
+            defaults.add("minecraft:the_end");
+            result = defaults;
+        } else {
+            try {
+                var wrapper = BuiltinRegistries.createWrapperLookup().getWrapperOrThrow(key);
+                List<String> ids = new ArrayList<>(wrapper.streamKeys()
+                        .map(k -> k.getValue().toString())
+                        .sorted()
+                        .toList());
+                ids.add(0, "");
+                result = ids;
+            } catch (Exception e) {
+                result = new ArrayList<>(List.of(""));
+            }
+        }
+
+        REGISTRY_CACHE.put(key, result);
+        return result;
     }
 }

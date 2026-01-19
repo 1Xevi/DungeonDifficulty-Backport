@@ -13,17 +13,19 @@ import java.util.ArrayList;
 
 public class Default {
     public static void populate(ConfigServer config) {
-        // Difficulty types
+        // difficulty types
         var normalDifficulty = new ConfigServer.DifficultyType("adventure");
-        normalDifficulty.entities = List.of(
+        normalDifficulty.entities = new ArrayList<>(List.of(
                 createEntityModifier(null,
-                        List.of(
+                        new ArrayList<>(List.of(
                                 createAttackDamageMultiplier(0.2F, 0),
                                 createArmorBonus(1),
                                 createHealthMultiplier(0.25F, 0.1F)
-                        ),
+                        )),
                         null,
-                        0.2F)
+                        0.2F
+                        )
+                )
         );
 
         var meta = new ConfigServer.Meta();
@@ -43,11 +45,12 @@ public class Default {
         dungeonSpawners.spawn_count_multiplier = 0.5F;
         dungeonSpawners.max_nearby_entities_multiplier = 0.25F;
 
-        dungeonDifficulty.entities = List.of(
+        dungeonDifficulty.entities = new ArrayList<>(List.of(
                 createEntityModifier(null,
-                        List.of(),
+                        new ArrayList<>(List.of()),
                         dungeonSpawners,
-                        0)
+                        0
+                ))
         );
         config.loot_scaling.armor = List.of(
                 createItemModifier(List.of(
@@ -65,7 +68,7 @@ public class Default {
         var heroicDifficulty = new ConfigServer.DifficultyType("heroic");
         heroicDifficulty.parent = dungeonDifficulty.name;
 
-        config.difficulty_types = List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty);
+        config.difficulty_types = new ArrayList<>(List.of(normalDifficulty, dungeonDifficulty, heroicDifficulty));
 
         // per player difficulty
         var perPlayerDifficulty = new ConfigServer.PerPlayerDifficulty();
@@ -87,7 +90,7 @@ public class Default {
         config.scaling_rules = new ArrayList<>();
 
         // OVERWORLD TREE
-        var overworld = ruleDim("minecraft:overworld", null, 0);
+        var overworld = ruleDim("minecraft:overworld", "adventure", 0);
 
         // nest the old Zones as overrides
         overworld.overrides.add(ruleStructure("#dungeon_difficulty:level_3", "dungeon", 3));
@@ -215,7 +218,7 @@ public class Default {
 
     private static ConfigServer.ScalingRule ruleBiomeRegex(String regex, String diffName, int level) {
         var r = new ConfigServer.ScalingRule();
-        r.match.biome = "~" + regex; // Assuming PatternMatching.REGEX_PREFIX is "~"
+        r.match.biome = "~" + regex;
         r.difficulty = new ConfigServer.DifficultyReference(diffName, level);
         return r;
     }
