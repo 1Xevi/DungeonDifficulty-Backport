@@ -12,153 +12,17 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import org.jetbrains.annotations.Nullable;
 
-import java.io.ObjectInputFilter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+
+import static net.dungeon_difficulty.fabric.client.GuiUtils.*;
+
 
 public class GuiBuilder {
     private static final ConfigServer DEFAULTS = new ConfigServer();
 
-    // GENERIC FRAME (Used for sub-screens like editing Attributes)
-    private static <T> Screen createGeneric(
-            Screen parent,
-            Text title,
-            T item,
-            Consumer<T> saveConsumer,
-            @Nullable Runnable deleteAction,
-            Consumer<ConfigCategory.Builder> contentInjector,
-            @Nullable Runnable onSaveAndClose
-    ) {
-        var categoryBuilder = ConfigCategory.createBuilder().name(title);
-        contentInjector.accept(categoryBuilder);
-
-        if (deleteAction != null) {
-            categoryBuilder.option(ButtonOption.createBuilder()
-                    .name(Text.literal("§c[X] Delete Entry"))
-                    .description(OptionDescription.of(Text.literal("Permanently remove this entry.")))
-                    .action((s, b) -> deleteAction.run())
-                    .build());
-        }
-
-        return YetAnotherConfigLib.createBuilder()
-                .title(title)
-                .category(categoryBuilder.build())
-                .save(() -> {
-                    saveConsumer.accept(item);
-                    if (onSaveAndClose != null) onSaveAndClose.run();
-                })
-                .build()
-                .generateScreen(parent);
-    }
-
-    // drown down list
-    private static <T> void addGenericList(
-            ConfigCategory.Builder category,
-            String listTitle,
-            String itemLabel,
-            List<T> list,
-            Screen parent,
-            Supplier<T> constructor,
-            Function<T, String> nameProvider,
-            Function<T, String> descriptionProvider,
-            EditorInjector<T> injector
-    ) {
-        // separator
-        var headerGroup = OptionGroup.createBuilder()
-                .name(Text.literal(listTitle)) //
-                .collapsed(false);
-
-        // add button
-        headerGroup.option(ButtonOption.createBuilder()
-                .name(Text.literal("§a[+] Add New " + itemLabel))
-                .action((s, b) -> {
-                    list.add(constructor.get());
-                    AutoConfig.getConfigHolder(ConfigServer.class).save();
-                    MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent));
-                })
-                .build());
-
-        category.group(headerGroup.build());
-
-        // LOOPING
-        for (int i = 0; i < list.size(); i++) {
-            int finalI = i;
-            T item = list.get(i);
-
-            var itemGroup = OptionGroup.createBuilder()
-                    .name(Text.literal(nameProvider.apply(item))) // e.g. "preset: adventure"
-                    .description(OptionDescription.of(Text.literal(descriptionProvider.apply(item))))
-                    .collapsed(true); // Closed by default
-
-            // Inject fields
-            injector.inject(itemGroup, item, parent);
-
-            // Delete Button
-            itemGroup.option(ButtonOption.createBuilder()
-                    .name(Text.literal("§c[X] Delete this entry"))
-                    .action((s, b) -> {
-                        list.remove(finalI);
-                        AutoConfig.getConfigHolder(ConfigServer.class).save();
-                        MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent));
-                    })
-                    .build());
-
-            category.group(itemGroup.build());
-        }
-    }
-
-    private static <T> void addSubListButton(
-            OptionGroup.Builder builder,
-            String title, String label,
-            List<T> list,
-            Screen parent,
-            Supplier<T> ctor,
-            Function<T, String> namer,
-            Function<T, String> descriptionProvider,
-            EditorInjector<T> injector) {
-        StringBuilder previewText = new StringBuilder("§7Contents:");
-
-        if (list.isEmpty()) {
-            previewText.append("\n§8(Empty)");
-        } else {
-            int limit = 5;
-            for (int i = 0; i < Math.min(list.size(), limit); i++) {
-                previewText.append("\n§7- ").append(namer.apply(list.get(i)));
-            }
-
-            // If there are more, show a count
-            if (list.size() > limit) {
-                previewText.append("\n§8... and ").append(list.size() - limit).append(" more.");
-            }
-        }
-
-        builder.option(ButtonOption.createBuilder()
-                .name(Text.literal("§e[>] Edit " + title + " §7(" + list.size() + ")"))
-                .description(OptionDescription.of(Text.literal(previewText.toString())))
-                .action((s, b) -> MinecraftClient.getInstance().setScreen(
-                        createGeneric(
-                                s,
-                                Text.literal(title),
-                                list,
-                                (saved) -> AutoConfig.getConfigHolder(ConfigServer.class).save(),
-                                null,
-                                (cat) -> addGenericList(cat, title, label, list, s, ctor, namer, descriptionProvider, injector),
-
-                                () -> MinecraftClient.getInstance().setScreen(GuiBuilder.create(parent))
-                        )
-                ))
-                .build());
-    }
-
-    // --- OVERLOADED EDITORS ---
-
-    // ATTRIBUTES (Leaf Node)
+    // --- OVERLOADED EDITORS
+    // ATTRIBUTES (leaf Node)
     private static void injectEditor(OptionGroup.Builder builder, AttributeModifier item, Screen parent) {
 
         builder.option(Option.<String>createBuilder()
@@ -180,7 +44,7 @@ public class GuiBuilder {
                 .build());
     }
 
-    // ENTITIES (Recursive)
+    // ENTITIES (recursive)
     private static void injectEditor(OptionGroup.Builder builder, ConfigServer.EntityModifier item, Screen parent) {
         if (item.entity_matches == null) item.entity_matches = new ConfigServer.EntityModifier.Filters();
 
@@ -197,7 +61,7 @@ public class GuiBuilder {
                 .controller(opt -> DropdownStringControllerBuilder.create(opt).values(getRegistryIds(Registries.ENTITY_TYPE)))
                 .build());
 
-        // Sub-list for Attributes
+        // sublist for attributes
         addSubListButton(builder, "Attributes", "Attribute", item.attributes, parent,
                 () -> new ConfigServer.AttributeModifier("minecraft:generic.movement_speed", 0.1f),
                 a -> a.attribute,
@@ -205,11 +69,11 @@ public class GuiBuilder {
                 GuiBuilder::injectEditor);
     }
 
-    // ITEMS (Recursive)
+    // ITEMS (recursive)
     private static void injectEditor(OptionGroup.Builder builder, ItemModifier item, Screen parent) {
         if (item.item_matches == null) item.item_matches = new ConfigServer.ItemModifier.Filters();
 
-        // Item ID
+        // item ID
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Target Item ID"))
                 .description(OptionDescription.of(Text.literal("Leave empty to match by Regex instead."))) // Explanation!
@@ -219,7 +83,7 @@ public class GuiBuilder {
                 .controller(opt -> DropdownStringControllerBuilder.create(opt).values(getRegistryIds(Registries.ITEM)))
                 .build());
 
-        // Loot Table Regex
+        // loot table Regex
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Loot Table Regex"))
                 .description(OptionDescription.of(Text.literal("Matches the loot table name (e.g. '.*chests/.*'). Leave empty to ignore.")))
@@ -229,7 +93,7 @@ public class GuiBuilder {
                 .controller(StringControllerBuilder::create) // Standard text box
                 .build());
 
-        // Rarity Regex
+        // rarity regex
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Rarity Regex"))
                 .description(OptionDescription.of(Text.literal("Matches item rarity (common, uncommon, etc).")))
@@ -239,7 +103,7 @@ public class GuiBuilder {
                 .controller(StringControllerBuilder::create)
                 .build());
 
-        // Attributes Button (Recursive)
+        // attributes button (Recursive)
         addSubListButton(builder, "Attributes", "Attribute", item.attributes, parent,
                 () -> new ConfigServer.AttributeModifier("minecraft:generic.armor", 0f),
                 a -> a.attribute,
@@ -247,7 +111,7 @@ public class GuiBuilder {
                 GuiBuilder::injectEditor);
     }
 
-    // E. DIFFICULTY TYPES (Recursive)
+    // DIFFICULTY TYPES (Recursive)
     private static void injectEditor(OptionGroup.Builder builder, ConfigServer.DifficultyType item, Screen parent) {
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Preset Name"))
@@ -263,7 +127,7 @@ public class GuiBuilder {
                 v -> item.allow_loot_scaling = v
         ));
 
-        // Sub-list for Entity Rules in this preset
+        // sublist for entity rules in this preset
         addSubListButton(builder, "Entity Rules", "Rule", item.entities, parent,
                 ConfigServer.EntityModifier::new,
                 e -> e.entity_matches.type,
@@ -276,7 +140,7 @@ public class GuiBuilder {
     }
 
     private static void injectEditor(OptionGroup.Builder builder, ConfigServer.ScalingRule item, Screen parent) {
-        // 1Match Criteria
+        // match criteria
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Dimension"))
                 .binding(item.match.dimension, () -> item.match.dimension, v -> item.match.dimension = v)
@@ -298,7 +162,7 @@ public class GuiBuilder {
                 .build());
 
 
-        // Difficulty Assignment
+        // difficulty assignment
         builder.option(Option.<String>createBuilder()
                 .name(Text.literal("Difficulty Name"))
                 .binding(item.difficulty.name, () -> item.difficulty.name, v -> item.difficulty.name = v)
@@ -313,7 +177,7 @@ public class GuiBuilder {
                         .step(1))
                 .build());
 
-        // Sub-list for Overrides (Recursive)
+        // sublist for overrides (recursive)
         addSubListButton(builder, "§6§l[ Sub-Overrides ]", "Override", item.overrides, parent,
                 ConfigServer.ScalingRule::new,
                 r -> r.match.structure.isEmpty() ? r.match.dimension : r.match.structure,
@@ -323,7 +187,9 @@ public class GuiBuilder {
 
     }
 
+
     // -- CATEGORY BUILDERS
+
     private static ConfigCategory buildCategory(ConfigServer.Meta key, ConfigServer config, Screen parent ) {
         var builder = ConfigCategory.createBuilder().name(Text.literal("Global"));
 
@@ -413,7 +279,6 @@ public class GuiBuilder {
         return builder.build();
     }
 
-
     private static ConfigCategory buildCategory(ConfigServer key, ConfigServer config, Screen parent) {
         var builder = ConfigCategory.createBuilder().name(Text.literal("Difficulty Settings"));
 
@@ -473,7 +338,7 @@ public class GuiBuilder {
                             .controller(StringControllerBuilder::create)
                             .build());
 
-                    GuiBuilder.addSubListButton(b,
+                    addSubListButton(b,
                             "Entity Rules",
                             "Rule",
                             preset.entities,
@@ -535,7 +400,7 @@ public class GuiBuilder {
                                     .build());
 
                             // Attributes Sub-List (Recursive)
-                            GuiBuilder.addSubListButton(b,
+                            addSubListButton(b,
                                     "Attributes",
                                     "Attribute",
                                     item.attributes,
@@ -574,7 +439,7 @@ public class GuiBuilder {
                             .controller(StringControllerBuilder::create)
                             .build());
 
-                    GuiBuilder.addSubListButton(b, "Attributes", "Attribute", item.attributes, p,
+                    addSubListButton(b, "Attributes", "Attribute", item.attributes, p,
                             () -> new ConfigServer.AttributeModifier("minecraft:generic.armor", 1.0f),
                             (attr) -> attr.getSummary(),
                             (attr) -> "§7Operation: " + attr.operation + "\n§7Value: " + attr.value,
@@ -586,29 +451,9 @@ public class GuiBuilder {
         return builder.build();
     }
 
-    @FunctionalInterface
-    interface EditorInjector<T> {
-        void inject(OptionGroup.Builder builder, T item, Screen parent);
-    }
 
-    // -- HELPERS
-    private static Option<Boolean> buildBool(String name, String desc, boolean def, Supplier<Boolean> getter, Consumer<Boolean> setter) {
-        return Option.<Boolean>createBuilder().name(Text.literal(name)).description(OptionDescription.of(Text.literal(desc))).binding(def, getter, setter).controller(TickBoxControllerBuilder::create).build();
-    }
+    // -- MAIN ENTRY POINT
 
-    private static List<String> getRegistryIds(@Nullable net.minecraft.registry.Registry<?> registry) {
-        if (registry == null) return List.of("");
-
-        List<String> ids = new ArrayList<>(registry.getIds().stream()
-                .map(Identifier::toString)
-                .sorted()
-                .toList());
-
-        ids.add(0, "");
-        return ids;
-    }
-
-    // --- MAIN ENTRY POINT
     public static Screen create(Screen parent) {
         var config = ConfigServer.fetch();
 
