@@ -28,7 +28,7 @@ public class Default {
 
         var meta = new ConfigServer.Meta();
         meta.global_loot_scaling = true;
-        meta.rounding_unit = 0.5;
+        meta.rounding_mode = ConfigServer.RoundingMode.HALVES;
         meta.merge_item_modifiers = true;
         meta.sanitize_config = true;
 

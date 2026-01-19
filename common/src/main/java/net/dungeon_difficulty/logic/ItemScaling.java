@@ -1,7 +1,6 @@
 package net.dungeon_difficulty.logic;
 
 import com.google.common.collect.Multimap;
-import com.mojang.logging.LogUtils;
 import net.dungeon_difficulty.config.ConfigServer;
 import net.dungeon_difficulty.util.Compat.CIdentifier;
 import net.dungeon_difficulty.util.Debugger;
@@ -18,7 +17,6 @@ import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.server.world.ServerWorld;
-import org.slf4j.Logger;
 
 import java.util.*;
 
@@ -323,8 +321,8 @@ public class ItemScaling {
 
     private static Double getRoundingUnit() {
         var config = ConfigServer.fetch();
-        if (config.meta != null) {
-            return config.meta.rounding_unit;
+        if (config.meta != null && config.meta.rounding_mode != null) {
+            return config.meta.rounding_mode.value;
         }
         return null;
     }

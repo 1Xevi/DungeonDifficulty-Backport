@@ -14,6 +14,8 @@ import java.util.Random;
 
 @Config(name = DungeonDifficulty.MODID + "-server")
 public class ConfigServer implements ConfigData {
+    public static ConfigServer fetch() { return AutoConfig.getConfigHolder(ConfigServer.class).getConfig(); }
+
     public ConfigServer() {
         Debugger.log("DEBUG: Populating defaults...");
         Default.populate(this);
@@ -34,27 +36,29 @@ public class ConfigServer implements ConfigData {
         }
     }
 
-    public static ConfigServer fetch() { return AutoConfig.getConfigHolder(ConfigServer.class).getConfig(); }
-
     public Meta meta = new Meta();
+    public Announcement announcement = new Announcement();
+    public PerPlayerDifficulty per_player_difficulty = new PerPlayerDifficulty();
+    public List<DifficultyType> difficulty_types = new ArrayList<>();
+    public Rewards loot_scaling = new Rewards();
+    public List<ScalingRule> scaling_rules = new ArrayList<>();
+
     public static class Meta { public Meta() { }
         public boolean sanitize_config = true;
-        public double rounding_unit = 0.5;
+        public RoundingMode rounding_mode = RoundingMode.HALVES;
         public boolean merge_item_modifiers = true;
         public boolean global_loot_scaling = true;
         public boolean enable_overriding_enchantment_rarity = true;
         public boolean enable_scaled_items_rarity = true;
     }
 
-    public Announcement announcement = new Announcement();
     public static class Announcement { public Announcement() { }
         public boolean enabled = true;
         public int check_interval_seconds = 5;
-        public int reannounce_cooldown_seconds = 123;
+        public int reannounce_cooldown_seconds = 20;
         public int history_size = 10;
     }
 
-    public PerPlayerDifficulty per_player_difficulty;
     public static class PerPlayerDifficulty { public PerPlayerDifficulty() { }
         public boolean enabled = true;
         public enum Counting { EVERYWHERE, DIMENSION }
@@ -63,22 +67,20 @@ public class ConfigServer implements ConfigData {
         public List<EntityModifier> entities = List.of();
     }
 
-    public List<DifficultyType> difficulty_types = new ArrayList<>();
     public static class DifficultyType { public DifficultyType() { }
-        public String name;
-        public String parent;
+        public String name = "custom";
+        public String parent = "";
         @Nullable public String translation_code;
         @Nullable public Boolean allow_loot_scaling;
-        public List<EntityModifier> entities = List.of();
+        public List<EntityModifier> entities = new ArrayList<>();
         public DifficultyType(String name) {
             this.name = name;
         }
     }
-
-    public Rewards loot_scaling = new Rewards();
+    ;
     public static class Rewards { public Rewards() { }
-        public List<ItemModifier> armor = List.of();
-        public List<ItemModifier> weapons = List.of();
+        public List<ItemModifier> armor = new ArrayList<>();
+        public List<ItemModifier> weapons = new ArrayList<>();
 
         public static class SmithingUpgrade { public SmithingUpgrade() { }
             public boolean enabled = true;
@@ -89,7 +91,7 @@ public class ConfigServer implements ConfigData {
     }
 
     public static class DifficultyReference { public DifficultyReference() { }
-        public String name;
+        public String name = "custom";
         public int level = 0;
         @Nullable public Integer entity_level;
         @Nullable public Integer reward_level;
@@ -98,8 +100,6 @@ public class ConfigServer implements ConfigData {
             this.level = level;
         }
     }
-
-    public List<ScalingRule> scaling_rules = new ArrayList<>();
 
     public static class ScalingRule {
         public ScalingRule() {
@@ -119,31 +119,84 @@ public class ConfigServer implements ConfigData {
 
     public enum Operation { ADDITION, MULTIPLY_BASE }
 
+    public enum RoundingMode {
+        NONE(0.0, "None (Precise)"),
+        TENTHS(0.1, "Very High (0.1)"), // Good for Speed
+        FIFTHS(0.2, "High (0.2)"),           // Good for Speed/Knockback
+        QUARTERS(0.25, "Medium (0.25)"),
+        HALVES(0.5, "Low (0.5)"),            // Good for Health (Hearts)
+        INTEGERS(1.0, "Whole Numbers (1.0)"); // Good for Damage/Armor
+
+        public final double value;
+        private final String label;
+
+        RoundingMode(double value, String label) {
+            this.value = value;
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label; // This is what YACL shows in the dropdown!
+        }
+    }
+
     public static class EntityModifier { public EntityModifier() { }
         public static class Filters {
             public enum Attitude {
                 FRIENDLY, HOSTILE, ANY
             }
-            @Nullable public Attitude attitude = Attitude.ANY;
+            public Attitude attitude = Attitude.ANY;
             // Universal pattern matching against entity type ID
-            @Nullable public String type = "";
+            public String type = "";
         }
-        @Nullable public Filters entity_matches = new Filters();
+        public Filters entity_matches = new Filters();
         @Nullable public SpawnerModifier spawners = null;
-        public List<AttributeModifier> attributes = List.of();
+        public List<AttributeModifier> attributes = new ArrayList<>();
         public float experience_multiplier = 0;
+
+        public String getSummary() {
+            String type = (entity_matches.type == null || entity_matches.type.isEmpty())
+                    ? "ALL MOBS"
+                    : entity_matches.type.replace("minecraft:", ""); // Shorten name
+
+            String attitude = (entity_matches.attitude == Filters.Attitude.ANY)
+                    ? ""
+                    : " (" + entity_matches.attitude.name() + ")";
+
+            // Returns: "zombie (HOSTILE)" or "ALL MOBS"
+            return type + attitude;
+        }
     }
 
     public static class ItemModifier { public ItemModifier() { }
         public static class Filters {
             // Universal pattern matching against item ID
-            @Nullable public String id = "";
-            @Nullable public String loot_table_regex = "";
-            @Nullable public String rarity_regex = "";
+            public String id = "";
+            public String loot_table_regex = "";
+            public String rarity_regex = "";
         }
         @Nullable public Filters item_matches = new Filters();
 
-        public List<AttributeModifier> attributes = List.of();
+        public List<AttributeModifier> attributes = new ArrayList<>();
+
+        public String getSummary() {
+            if (item_matches == null) return "§cInvalid Rule";
+
+            if (item_matches.id != null && !item_matches.id.isEmpty()) {
+                return "§b" + item_matches.id.replace("minecraft:", "");
+            }
+
+            if (item_matches.loot_table_regex != null && !item_matches.loot_table_regex.isEmpty()) {
+                return "§eTable: " + item_matches.loot_table_regex;
+            }
+
+            if (item_matches.rarity_regex != null && !item_matches.rarity_regex.isEmpty()) {
+                return "§dRarity: " + item_matches.rarity_regex;
+            }
+
+            return "§f* Any Item";
+        }
     }
 
     public static class AttributeModifier { public AttributeModifier() { }
@@ -158,7 +211,14 @@ public class ConfigServer implements ConfigData {
             this.value = value;
         }
 
-        private static Random rng = new Random();
+        public String getSummary() {
+            String attrName = attribute.replace("minecraft:generic.", "").replace("minecraft:player.", "");
+            String suffix = (operation == Operation.MULTIPLY_BASE) ? "%" : "";
+
+            return String.format("+%.1f%s %s", value, suffix, attrName);
+        }
+
+        private static final Random rng = new Random();
         public float randomizedValue(int level) {
             var value = this.value * level;
             var randomizedValue = (randomness > 0)
